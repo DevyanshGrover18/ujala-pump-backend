@@ -150,6 +150,8 @@ export const createDistributor = async (req, res) => {
       gstNumber,
       contactPerson,
       contactPhone,
+      eligibleForIncentive,
+      eligibleForPoints,
     } = req.body;
 
     if (password.length < 8) {
@@ -197,6 +199,8 @@ export const createDistributor = async (req, res) => {
       contactPerson,
       contactPhone,
       distributorId: newDistributorId,
+      eligibleForIncentive: eligibleForIncentive !== undefined ? eligibleForIncentive : true,
+      eligibleForPoints: eligibleForPoints !== undefined ? eligibleForPoints : true,
     });
 
     const createdDistributor = await distributor.save();

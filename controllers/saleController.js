@@ -3,8 +3,69 @@ import Product from '../models/Product.js';
 import DistributorDealerProduct from '../models/DistributorDealerProduct.js';
 import DealerSubDealerProduct from '../models/DealerSubDealerProduct.js';
 import Dealer from '../models/Dealer.js';
+import Distributor from '../models/Distributor.js';
+import SubDealer from '../models/SubDealer.js';
+import ModelDoc from '../models/Model.js';
+import IncentiveClaim from '../models/IncentiveClaim.js';
 import mongoose from 'mongoose';
 import { login } from './authController.js';
+import Model from '../models/Model.js';
+
+const createIncentiveClaimHelper = async (sale, productId, customerName, customerPhone, subDealerId, dealerId, distributorId) => {
+  if (!customerName) return;
+  try {
+    let sellerType, sellerId, seller;
+    if (subDealerId) {
+      sellerType = 'SubDealer';
+      sellerId = subDealerId;
+      seller = await SubDealer.findById(subDealerId).lean();
+    } else if (dealerId) {
+      sellerType = 'Dealer';
+      sellerId = dealerId;
+      seller = await Dealer.findById(dealerId).lean();
+    } else if (distributorId) {
+      sellerType = 'Distributor';
+      sellerId = distributorId;
+      seller = await Distributor.findById(distributorId).lean();
+    }
+
+    if (seller) {
+      const freshProduct = await Product.findById(productId).populate('model').lean();
+      const modelDoc = freshProduct?.model || null;
+
+      const eligibleIncentive = seller.eligibleForIncentive !== false && seller.eligibleForIncentive !== 'false';
+      const eligiblePoints = seller.eligibleForPoints !== false && seller.eligibleForPoints !== 'false';
+      const modelIncentive = Number(modelDoc?.incentive || 0);
+      const modelPoints = Number(modelDoc?.points || 0);
+
+      if (modelIncentive > 0 || modelPoints > 0) {
+        const incentiveAmount = eligibleIncentive ? modelIncentive : 0;
+        const pointsEarned = eligiblePoints ? modelPoints : 0;
+
+        const saleGroupId = `${sellerId}_${customerPhone || 'x'}_${new Date().toISOString().slice(0, 10)}`;
+
+        await IncentiveClaim.create({
+          sale: sale._id,
+          sellerType,
+          sellerId,
+          sellerName: seller.name,
+          product: productId,
+          serialNumber: freshProduct?.serialNumber || '',
+          model: modelDoc?._id || null,
+          modelName: modelDoc?.name || '',
+          incentiveAmount,
+          points: pointsEarned,
+          status: 'Approval Pending',
+          claimDate: new Date(),
+          saleGroupId,
+        });
+      }
+    }
+  } catch (claimErr) {
+    console.error('IncentiveClaim creation helper error:', claimErr);
+  }
+};
+
 
 export const getDealerSales = async (req, res) => {
   try {
@@ -210,6 +271,10 @@ export const createSale = async (req, res) => {
 
     await session.commitTransaction();
     session.endSession();
+
+    // --- Auto-create IncentiveClaim when sold to a customer ---
+    await createIncentiveClaimHelper(sale, productId, customerName, customerPhone, subDealerId, dealerId, distributorId);
+    // --- End IncentiveClaim ---
 
     return res.status(201).json({
       message: existingSale
@@ -696,6 +761,10 @@ export const createSubDealerSale = async (req, res) => {
 
     await sale.save();
     await product.save();
+
+    // --- Auto-create IncentiveClaim when sold to a customer ---
+    await createIncentiveClaimHelper(sale, productId, customerName, customerPhone, subDealerId, null, null);
+    // --- End IncentiveClaim ---
 
     res.status(201).json(sale);
   } catch (error) {
@@ -1264,6 +1333,10 @@ export const adminCreateSale = async (req, res) => {
 
     await session.commitTransaction();
     session.endSession();
+
+    // --- Auto-create IncentiveClaim when sold to a customer ---
+    await createIncentiveClaimHelper(sale, productId, customerName, customerPhone, subDealerIdDb, dealerIdDb, distributorIdDb);
+    // --- End IncentiveClaim ---
 
     return res.status(201).json({
       message: 'Product sold by Admin successfully',

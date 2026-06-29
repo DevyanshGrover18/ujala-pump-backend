@@ -24,7 +24,7 @@ const generateToken = (id, role, distributor, factory, dealer, subDealer) => {
 
 // Helper function to find user by role
 const findUserByRole = async (username, role) => {
-  const sanitizedUsername = sanitizeInput(username);
+  const sanitizedUsername = sanitizeInput(username).toLowerCase();
   const sanitizedRole = sanitizeInput(role);
 
   const query = {
@@ -71,7 +71,7 @@ export const login = async (req, res) => {
         );
     }
 
-    const sanitizedUsername = sanitizeInput(username);
+    const sanitizedUsername = sanitizeInput(username).toLowerCase();
     const sanitizedRole = sanitizeInput(role);
 
     let user = await findUserByRole(sanitizedUsername, sanitizedRole);
@@ -266,7 +266,7 @@ export const requestPasswordReset = async (req, res) => {
         .json(createSecureErrorResponse('Username and role are required', 400));
     }
 
-    const sanitizedUsername = sanitizeInput(username);
+    const sanitizedUsername = sanitizeInput(username).toLowerCase();
     const sanitizedRole = sanitizeInput(role);
 
     const user = await findUserByRole(sanitizedUsername, sanitizedRole);

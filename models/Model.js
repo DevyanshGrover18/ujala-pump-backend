@@ -124,6 +124,16 @@ const modelSchema = new mongoose.Schema(
         message: 'At least one warranty entry is required',
       },
     },
+    incentive: {
+      type: Number,
+      default: 0,
+      min: [0, 'Incentive amount cannot be negative'],
+    },
+    points: {
+      type: Number,
+      default: 0,
+      min: [0, 'Points cannot be negative'],
+    },
     status: {
       type: String,
       enum: {

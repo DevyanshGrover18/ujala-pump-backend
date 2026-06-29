@@ -84,6 +84,22 @@ const subDealerSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    eligibleForIncentive: {
+      type: Boolean,
+      default: true,
+    },
+    eligibleForPoints: {
+      type: Boolean,
+      default: true,
+    },
+    walletIncentive: {
+      type: Number,
+      default: 0,
+    },
+    walletPoints: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,

@@ -90,7 +90,7 @@ const getModelsByCategory = async (req, res) => {
 
 const createModel = async (req, res) => {
   try {
-    const { name, code, category, specifications, warranty, status } = req.body;
+    const { name, code, category, specifications, warranty, status, incentive, points } = req.body;
 
     // Basic validation
     if (!name || !code || !category || !specifications) {
@@ -136,6 +136,8 @@ const createModel = async (req, res) => {
       },
       warranty: warranty || [],
       status: status || 'Active',
+      incentive: incentive !== undefined ? Number(incentive) : 0,
+      points: points !== undefined ? Number(points) : 0,
     };
 
     const model = await Model.create(sanitizedData);
@@ -169,7 +171,7 @@ const createModel = async (req, res) => {
 const updateModel = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, code, category, specifications, warranty, status } = req.body;
+    const { name, code, category, specifications, warranty, status, incentive, points } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res
@@ -216,6 +218,8 @@ const updateModel = async (req, res) => {
     }
     if (warranty) updateData.warranty = warranty;
     if (status) updateData.status = status;
+    if (incentive !== undefined) updateData.incentive = Number(incentive);
+    if (points !== undefined) updateData.points = Number(points);
 
     const updatedModel = await Model.findByIdAndUpdate(id, updateData, {
       new: true,
