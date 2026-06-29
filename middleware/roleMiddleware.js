@@ -39,6 +39,14 @@ const ROLE_PERMISSIONS = {
   subdealer: {
     sales: { add: false, modify: false, delete: false, full: false },
   },
+  executive: {
+    distributors: { add: false, modify: false, delete: false, full: false, view: true },
+    dealers: { add: false, modify: false, delete: false, full: false, view: true },
+    subDealers: { add: false, modify: false, delete: false, full: false, view: true },
+    sales: { add: false, modify: false, delete: false, full: false, view: true },
+    products: { add: false, modify: false, delete: false, full: false, view: true },
+    orders: { add: false, modify: false, delete: false, full: false, view: true },
+  },
 };
 
 const verifyToken = (req, res, next) => {
@@ -231,6 +239,14 @@ const checkSectionAccess = (section) => {
         distributor: ['dealers', 'subDealers', 'products', 'sales'],
         dealer: ['subDealers', 'products', 'sales'],
         subdealer: ['sales'],
+        executive: [
+          'distributors',
+          'dealers',
+          'subDealers',
+          'sales',
+          'products',
+          'orders',
+        ],
       };
 
       if (sectionAccess[role] && sectionAccess[role].includes(section)) {

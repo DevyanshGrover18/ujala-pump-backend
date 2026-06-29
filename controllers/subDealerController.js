@@ -3,6 +3,7 @@ import Dealer from '../models/Dealer.js';
 import User from '../models/User.js';
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
+import Sale from '../models/Sale.js';
 
 export const getSubDealers = async (req, res) => {
   try {
@@ -18,6 +19,17 @@ export const getSubDealers = async (req, res) => {
       matchQuery.dealer = new mongoose.Types.ObjectId(dealerId);
     }
 
+    // Role-based authorization for executives
+    if (req.user && req.user.role === 'executive') {
+      const Executive = (await import('../models/Executive.js')).default;
+      const exec = await Executive.findOne({ user: req.user.id });
+      if (exec) {
+        matchQuery._id = { $in: exec.subDealers || [] };
+      } else {
+        matchQuery._id = { $in: [] };
+      }
+    }
+
     const subDealers = await SubDealer.aggregate([
       { $match: matchQuery },
       {
@@ -28,7 +40,7 @@ export const getSubDealers = async (req, res) => {
             {
               $match: {
                 $expr: { $eq: ['$subDealer', '$$subDealerId'] },
-                // Logic: Sub-dealer ki inventory tabhi mani jayegi
+                // Logic: Sub-dealer ki inventory tabhi mani jayega
                 // jab customerName nahi bhara gaya ho
                 customerName: { $exists: false },
               },
@@ -49,9 +61,27 @@ export const getSubDealers = async (req, res) => {
           as: 'inventoryItems',
         },
       },
+      // Sales Count
+      {
+        $lookup: {
+          from: 'sales',
+          let: { sdId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ['$subDealer', '$$sdId'] },
+                customerName: { $exists: true, $ne: null, $ne: '' }
+              }
+            }
+          ],
+          as: 'salesItems'
+        }
+      },
       {
         $addFields: {
           productCount: { $size: '$inventoryItems' },
+          inventoryCount: { $size: '$inventoryItems' },
+          salesCount: { $size: '$salesItems' },
         },
       },
       {
@@ -71,6 +101,7 @@ export const getSubDealers = async (req, res) => {
       {
         $project: {
           inventoryItems: 0,
+          salesItems: 0,
           password: 0,
         },
       },
@@ -276,6 +307,62 @@ export const deleteMultipleSubDealers = async (req, res) => {
 
     await SubDealer.deleteMany({ _id: { $in: subDealerIds } });
     res.json({ message: 'Sub-dealers deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getSubDealerSalesCombined = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate request role-based access if executive
+    if (req.user && req.user.role === 'executive') {
+      const Executive = (await import('../models/Executive.js')).default;
+      const exec = await Executive.findOne({ user: req.user.id });
+      if (!exec || !exec.subDealers.includes(id)) {
+        return res.status(403).json({ message: 'Access denied. This sub-dealer is not assigned to you.' });
+      }
+    }
+
+    const sales = await Sale.find({
+      subDealer: id,
+      customerName: { $exists: true, $ne: '' }
+    })
+      .populate({
+        path: 'product',
+        populate: { path: 'model' }
+      });
+
+    res.json(sales);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getSubDealerInventoryCombined = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate request role-based access if executive
+    if (req.user && req.user.role === 'executive') {
+      const Executive = (await import('../models/Executive.js')).default;
+      const exec = await Executive.findOne({ user: req.user.id });
+      if (!exec || !exec.subDealers.includes(id)) {
+        return res.status(403).json({ message: 'Access denied. This sub-dealer is not assigned to you.' });
+      }
+    }
+
+    const inventory = await Sale.find({
+      subDealer: id,
+      customerName: { $exists: false }
+    })
+      .populate({
+        path: 'product',
+        populate: { path: 'model' }
+      });
+
+    res.json(inventory);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

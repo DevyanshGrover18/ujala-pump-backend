@@ -22,7 +22,7 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: {
-        values: ['admin', 'factory', 'distributor', 'dealer', 'subdealer'],
+        values: ['admin', 'factory', 'distributor', 'dealer', 'subdealer', 'executive'],
         message: 'Invalid role specified',
       },
       required: [true, 'Role is required'],
@@ -57,6 +57,13 @@ const userSchema = new mongoose.Schema(
       ref: 'SubDealer',
       required: function () {
         return this.role === 'subdealer';
+      },
+    },
+    executive: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Executive',
+      required: function () {
+        return this.role === 'executive';
       },
     },
     loginAttempts: {

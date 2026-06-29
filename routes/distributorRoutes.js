@@ -11,6 +11,7 @@ import {
   createDealerForDistributor,
   updateDealerForDistributor,
   getDistributorProductModels,
+  getDistributorSalesCombined,
 } from '../controllers/distributorController.js';
 import {
   verifyToken,
@@ -105,6 +106,13 @@ router.put(
   verifyToken,
   checkPermission('dealers', 'modify'),
   updateDealerForDistributor
+);
+
+// @route   GET /api/distributors/:id/sales
+router.get(
+  '/:id/sales',
+  verifyToken,
+  getDistributorSalesCombined
 );
 
 export default router;

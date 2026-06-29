@@ -32,6 +32,7 @@ import distributorRequestRoutes from './routes/distributorRequestRoutes.js';
 import dealerDeletionRequestRoutes from './routes/dealerDeletionRequestRoutes.js';
 import customerChangeRequestRoutes from './routes/customerChangeRequestRoutes.js';
 import warrantyStickerRoutes from './routes/warrantyStickerRoutes.js';
+import executiveRoutes from './routes/executiveRoutes.js';
 
 dotenv.config();
 
@@ -113,6 +114,7 @@ app.use('/api/factory-orders', factoryOrderRoutes);
 app.use('/api/distributor-requests', distributorRequestRoutes);
 app.use('/api/dealer-deletion-requests', dealerDeletionRequestRoutes);
 app.use('/api/customer-change-requests', customerChangeRequestRoutes);
+app.use('/api/executives', executiveRoutes);
 app.use('/api/qr', qrRoutes);
 app.use('/api/pdf', pdfRoutes);
 

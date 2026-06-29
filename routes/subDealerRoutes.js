@@ -5,6 +5,8 @@ import {
   updateSubDealer,
   deleteSubDealer,
   deleteMultipleSubDealers,
+  getSubDealerSalesCombined,
+  getSubDealerInventoryCombined,
 } from '../controllers/subDealerController.js';
 import {
   verifyToken,
@@ -82,5 +84,8 @@ router.put(
   updateSubDealer
 );
 router.delete('/dealer/sub-dealers/:id', verifyToken, deleteSubDealer);
+
+router.get('/sub-dealers/:id/sales', verifyToken, getSubDealerSalesCombined);
+router.get('/sub-dealers/:id/inventory', verifyToken, getSubDealerInventoryCombined);
 
 export default router;

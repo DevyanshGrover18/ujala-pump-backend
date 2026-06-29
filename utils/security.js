@@ -53,6 +53,7 @@ export const validateRole = (role) => {
     'dealer',
     'subdealer',
     'member',
+    'executive',
   ];
   return validRoles.includes(role);
 };

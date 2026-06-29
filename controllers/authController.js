@@ -46,6 +46,10 @@ const findUserByRole = async (username, role) => {
       return await User.findOne(query)
         .populate('subDealer')
         .select('+password');
+    case 'executive':
+      return await User.findOne(query)
+        .populate('executive')
+        .select('+password');
     default:
       return await User.findOne(query).select('+password');
   }
@@ -133,6 +137,7 @@ export const login = async (req, res) => {
       distributor: user.distributor,
       dealer: user.dealer,
       subDealer: user.subDealer,
+      executive: user.executive,
       token: generateToken(
         user._id,
         user.role,

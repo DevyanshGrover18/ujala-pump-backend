@@ -4,6 +4,8 @@ import User from '../models/User.js'; // Import User model
 import Dealer from '../models/Dealer.js'; // Import Dealer model
 import bcrypt from 'bcryptjs'; // Import bcrypt for password hashing
 import mongoose from 'mongoose';
+import DistributorDealerProduct from '../models/DistributorDealerProduct.js';
+import Sale from '../models/Sale.js';
 
 export const getDistributors = async (req, res) => {
   try {
@@ -19,6 +21,17 @@ export const getDistributors = async (req, res) => {
           { address: { $regex: search, $options: 'i' } },
         ],
       };
+    }
+
+    // Role-based authorization for executives
+    if (req.user && req.user.role === 'executive') {
+      const Executive = (await import('../models/Executive.js')).default;
+      const exec = await Executive.findOne({ user: req.user.id });
+      if (exec) {
+        matchQuery._id = { $in: exec.distributors || [] };
+      } else {
+        matchQuery._id = { $in: [] };
+      }
     }
 
     // Count only available products for each distributor: not sold and not assigned to any dealer
@@ -61,8 +74,37 @@ export const getDistributors = async (req, res) => {
         },
       },
       {
+        $lookup: {
+          from: 'distributordealerproducts',
+          localField: '_id',
+          foreignField: 'distributor',
+          as: 'dealerSales',
+        },
+      },
+      {
+        $lookup: {
+          from: 'sales',
+          let: { distId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$distributor', '$$distId'] },
+                    { $eq: [{ $ifNull: ['$dealer', null] }, null] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'customerSales',
+        },
+      },
+      {
         $addFields: {
           productCount: { $size: '$availableProducts' },
+          inventoryCount: { $size: '$availableProducts' },
+          salesCount: { $add: [{ $size: '$dealerSales' }, { $size: '$customerSales' }] },
           dealerCount: {
             $size: {
               $filter: {
@@ -78,6 +120,8 @@ export const getDistributors = async (req, res) => {
         $project: {
           availableProducts: 0,
           dealerDetails: 0, // Clean up the temporary field
+          dealerSales: 0,
+          customerSales: 0,
         },
       },
       { $sort: { name: 1 } },
@@ -656,5 +700,61 @@ export const updateDealerForDistributor = async (req, res) => {
   } catch (error) {
     console.error('Error updating dealer for distributor:', error);
     res.status(400).json({ message: error.message });
+  }
+};
+
+export const getDistributorSalesCombined = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Validate request role-based access if executive
+    if (req.user && req.user.role === 'executive') {
+      const Executive = (await import('../models/Executive.js')).default;
+      const exec = await Executive.findOne({ user: req.user.id });
+      if (!exec || !exec.distributors.includes(id)) {
+        return res.status(403).json({ message: 'Access denied. This distributor is not assigned to you.' });
+      }
+    }
+
+    const dealerSales = await DistributorDealerProduct.find({ distributor: id })
+      .populate({
+        path: 'product',
+        populate: { path: 'model' }
+      })
+      .populate('dealer', 'name');
+
+    const customerSales = await Sale.find({
+      distributor: id,
+      dealer: null,
+      subDealer: null,
+      customerName: { $exists: true, $ne: '' }
+    })
+      .populate({
+        path: 'product',
+        populate: { path: 'model' }
+      });
+
+    const combined = [
+      ...dealerSales.map(ds => ({
+        _id: ds._id,
+        serialNumber: ds.product?.serialNumber,
+        modelName: ds.product?.model?.name || 'Unknown',
+        type: 'Dealer Sale',
+        soldTo: ds.dealer?.name || 'Unknown Dealer',
+        date: ds.createdAt
+      })),
+      ...customerSales.map(cs => ({
+        _id: cs._id,
+        serialNumber: cs.product?.serialNumber,
+        modelName: cs.product?.model?.name || 'Unknown',
+        type: 'Direct Customer Sale',
+        soldTo: cs.customerName || 'Customer',
+        date: cs.createdAt
+      }))
+    ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    res.json(combined);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };

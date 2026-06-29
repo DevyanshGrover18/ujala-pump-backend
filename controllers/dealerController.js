@@ -3,6 +3,8 @@ import Distributor from '../models/Distributor.js';
 import SubDealer from '../models/SubDealer.js';
 import User from '../models/User.js';
 import bcrypt from 'bcryptjs';
+import Sale from '../models/Sale.js';
+import DealerSubDealerProduct from '../models/DealerSubDealerProduct.js';
 
 export const getDealers = async (req, res) => {
   try {
@@ -18,6 +20,17 @@ export const getDealers = async (req, res) => {
           { district: { $regex: search, $options: 'i' } },
         ],
       };
+    }
+
+    // Role-based authorization for executives
+    if (req.user && req.user.role === 'executive') {
+      const Executive = (await import('../models/Executive.js')).default;
+      const exec = await Executive.findOne({ user: req.user.id });
+      if (exec) {
+        matchQuery._id = { $in: exec.dealers || [] };
+      } else {
+        matchQuery._id = { $in: [] };
+      }
     }
 
     const dealers = await Dealer.aggregate([
@@ -54,9 +67,30 @@ export const getDealers = async (req, res) => {
           as: 'inventoryItems',
         },
       },
+      // Sales Count Logic
+      {
+        $lookup: {
+          from: 'sales',
+          let: { dId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ['$dealer', '$$dId'] },
+                $or: [
+                  { subDealer: { $exists: true, $ne: null } },
+                  { customerName: { $exists: true, $ne: null, $ne: '' } }
+                ]
+              }
+            }
+          ],
+          as: 'salesItems',
+        },
+      },
       {
         $addFields: {
           productCount: { $size: '$inventoryItems' },
+          inventoryCount: { $size: '$inventoryItems' },
+          salesCount: { $size: '$salesItems' },
         },
       },
       // Sub-dealer Count
@@ -96,6 +130,7 @@ export const getDealers = async (req, res) => {
       {
         $project: {
           inventoryItems: 0,
+          salesItems: 0,
           subDealers: 0,
           password: 0,
           distributorInfo: 0,
@@ -329,5 +364,89 @@ export const getDealersToSubDealer = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const getDealerSalesCombined = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate request role-based access if executive
+    if (req.user && req.user.role === 'executive') {
+      const Executive = (await import('../models/Executive.js')).default;
+      const exec = await Executive.findOne({ user: req.user.id });
+      if (!exec || !exec.dealers.includes(id)) {
+        return res.status(403).json({ message: 'Access denied. This dealer is not assigned to you.' });
+      }
+    }
+
+    const subDealerSales = await DealerSubDealerProduct.find({ dealer: id })
+      .populate({
+        path: 'product',
+        populate: { path: 'model' }
+      })
+      .populate('subDealer', 'name');
+
+    const customerSales = await Sale.find({
+      dealer: id,
+      subDealer: null,
+      customerName: { $exists: true, $ne: '' }
+    })
+      .populate({
+        path: 'product',
+        populate: { path: 'model' }
+      });
+
+    const combined = [
+      ...subDealerSales.map(s => ({
+        _id: s._id,
+        serialNumber: s.product?.serialNumber,
+        modelName: s.product?.model?.name || 'Unknown',
+        type: 'Sub Dealer Sale',
+        soldTo: s.subDealer?.name || 'Unknown Sub Dealer',
+        date: s.createdAt
+      })),
+      ...customerSales.map(c => ({
+        _id: c._id,
+        serialNumber: c.product?.serialNumber,
+        modelName: c.product?.model?.name || 'Unknown',
+        type: 'Direct Customer Sale',
+        soldTo: c.customerName || 'Customer',
+        date: c.createdAt
+      }))
+    ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    res.json(combined);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getDealerInventoryCombined = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate request role-based access if executive
+    if (req.user && req.user.role === 'executive') {
+      const Executive = (await import('../models/Executive.js')).default;
+      const exec = await Executive.findOne({ user: req.user.id });
+      if (!exec || !exec.dealers.includes(id)) {
+        return res.status(403).json({ message: 'Access denied. This dealer is not assigned to you.' });
+      }
+    }
+
+    const inventory = await Sale.find({
+      dealer: id,
+      subDealer: null,
+      customerName: { $exists: false }
+    })
+      .populate({
+        path: 'product',
+        populate: { path: 'model' }
+      });
+
+    res.json(inventory);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
