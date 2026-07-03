@@ -81,6 +81,7 @@ app.use(
       'https://www.ujalapump.com',
       'http://192.168.31.156:5173',
       'https://ujala-latest-development.vercel.app',
+      'https://ujalapump.com',
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
