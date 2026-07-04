@@ -709,12 +709,12 @@ export const downloadCombinedPDFs = async (req, res) => {
       return res.status(404).json({ message: 'No order items found' });
     }
 
-    // Sort orderItems by orderType: 1_unit, then 2_units, then 3_units
+    // Sort orderItems by orderType: 1_unit, then 2_units, then 3_units, then 4_units
     const sortedOrderItems = orderItems.sort((a, b) => {
       const orderTypeA = a.orderType;
       const orderTypeB = b.orderType;
 
-      const orderMap = { '1_unit': 1, '2_units': 2, '3_units': 3 };
+      const orderMap = { '1_unit': 1, '2_units': 2, '3_units': 3, '4_units': 4 };
 
       return orderMap[orderTypeA] - orderMap[orderTypeB];
     });

@@ -40,7 +40,7 @@ const orderSchema = new mongoose.Schema(
     orderType: {
       type: String,
       required: true,
-      enum: ['1_unit', '2_units', '3_units'],
+      enum: ['1_unit', '2_units', '3_units', '4_units'],
       default: '1_unit',
     },
     unitsPerBox: {
@@ -119,7 +119,7 @@ const orderItemSchema = new mongoose.Schema(
     orderType: {
       type: String,
       required: true,
-      enum: ['1_unit', '2_units', '3_units'],
+      enum: ['1_unit', '2_units', '3_units', '4_units'],
       default: '1_unit',
     },
     unitsPerBox: {

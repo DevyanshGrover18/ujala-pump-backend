@@ -265,7 +265,7 @@ export const createOrder = async (req, res) => {
     delete cleanOrderData.dispatchedAt;
 
     const unitsPerBox =
-      orderType === '2_units' ? 2 : orderType === '3_units' ? 3 : 1;
+      orderType === '2_units' ? 2 : orderType === '3_units' ? 3 : orderType === '4_units' ? 4 : 1;
     const totalUnits = quantity * unitsPerBox;
 
     const isManualOrder = isManual === true || isManual === 'true' || (Array.isArray(serialNumbers) && serialNumbers.length > 0);
@@ -522,7 +522,7 @@ export const updateOrder = async (req, res) => {
         const quantity = orderData.quantity || existingOrder.quantity;
         const orderType = orderData.orderType || existingOrder.orderType;
         const unitsPerBox =
-          orderType === '2_units' ? 2 : orderType === '3_units' ? 3 : 1;
+          orderType === '2_units' ? 2 : orderType === '3_units' ? 3 : orderType === '4_units' ? 4 : 1;
         const totalUnits = quantity * unitsPerBox;
 
         orderData.unitsPerBox = unitsPerBox;
@@ -1343,7 +1343,7 @@ export const transferToProducts = async (req, res) => {
 
 export const checkDuplicates = async (req, res) => {
   try {
-    const { serialNumbers } = req.body;
+    const { serialNumbers, orderId } = req.body;
     if (!serialNumbers || !Array.isArray(serialNumbers)) {
       return res
         .status(400)
@@ -1358,9 +1358,19 @@ export const checkDuplicates = async (req, res) => {
     }
 
     const regexSerials = parsedSerials.map((sn) => new RegExp(`^${sn}$`, 'i'));
+
+    // When editing an existing order, exclude its own items so existing serials
+    // don't get flagged as duplicates during an update.
+    const itemQuery = { serialNumber: { $in: regexSerials } };
+    const productQuery = { serialNumber: { $in: regexSerials } };
+    if (orderId) {
+      itemQuery.orderId = { $ne: orderId };
+      productQuery.orderId = { $ne: orderId };
+    }
+
     const [existingItems, existingProducts] = await Promise.all([
-      OrderItem.find({ serialNumber: { $in: regexSerials } }),
-      Product.find({ serialNumber: { $in: regexSerials } }),
+      OrderItem.find(itemQuery),
+      Product.find(productQuery),
     ]);
 
     const dupSerials = [
