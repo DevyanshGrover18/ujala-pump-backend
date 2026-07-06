@@ -57,7 +57,7 @@ const stickerConfig = {
     boxHeight: 18,
     boxGap: 8,
     serialTopExtra: 8,
-    serialAreaReserveFooter: 110,
+    serialAreaReserveFooter: 120,
   },
   footer: {
     yOffset: 40,
@@ -239,25 +239,38 @@ const generateBoxSticker = async (
   });
   yPositionLeft += modelTextHeight;
 
-  // Serial numbers
-  // Serial numbers with dynamic height adjustment
-  yPositionLeft += serialBoxes.yOffset;
+  // --- Left Column Serial Numbers ---
+  // Dynamic layout parameters based on items count
+  const isFourUnit = items.length >= 4;
+  const currentSerialFontSize = isFourUnit ? 8 : (items.length === 3 ? 8.5 : font.sizes.serial);
+  const currentSerialBoxHeight = isFourUnit ? 14 : (items.length === 3 ? 15 : (items.length === 2 ? 16 : serialBoxes.boxHeight));
+  const currentSerialBoxGap = isFourUnit ? 3 : (items.length === 3 ? 4 : (items.length === 2 ? 6 : serialBoxes.boxGap));
+  const currentSerialReserveFooter = 52;
+  const currentSerialYOffset = isFourUnit ? 4 : (items.length === 3 ? 6 : serialBoxes.yOffset);
+  const currentSerialTopExtra = isFourUnit ? 2 : (items.length === 3 ? 4 : serialBoxes.serialTopExtra);
+
+  // QR layout parameters - Fit all 4 QRs in a single row
+  const qrCount = qrCodes ? qrCodes.filter(Boolean).length : 0;
+  const currentQrWidth = qrCount >= 4 ? 36 : (qrCount === 3 ? 44 : qr.width);
+  const currentQrSpacing = qrCount >= 4 ? 4 : (qrCount === 3 ? 6 : qr.spacing);
+
+  yPositionLeft += currentSerialYOffset;
   const serialBoxWidth = leftColWidth - serialBoxes.boxWidthPadding;
   const serialBoxX = leftColX + serialBoxes.boxWidthPadding / 2;
 
   const serialAreaTop = yPositionLeft;
   const serialAreaBottom =
-    drawStartY + height - serialBoxes.serialAreaReserveFooter;
+    drawStartY + height - currentSerialReserveFooter;
   const availableHeight = Math.max(0, serialAreaBottom - serialAreaTop);
 
   // Calculate required height for each serial number
   const serialTexts = items.map((item) => `PUMP S.NO : ${item.serialNumber}`);
-  const baseBoxHeight = serialBoxes.boxHeight;
-  const minBoxHeight = 18; // Minimum box height
-  const textPadding = 6; // Padding inside box
+  const baseBoxHeight = currentSerialBoxHeight;
+  const minBoxHeight = currentSerialBoxHeight; // Use the configured box height as min
+  const textPadding = isFourUnit ? 3 : 6; // Less padding for 4 units
 
   // Measure each serial number text height
-  doc.fontSize(font.sizes.serial);
+  doc.fontSize(currentSerialFontSize);
   const measuredHeights = serialTexts.map((text) => {
     const textHeight = doc.heightOfString(text, {
       width: serialBoxWidth - textPadding * 2,
@@ -269,8 +282,8 @@ const generateBoxSticker = async (
   // Calculate total height needed
   let totalBoxesH =
     measuredHeights.reduce((sum, h) => sum + h, 0) +
-    Math.max(0, items.length - 1) * serialBoxes.boxGap;
-  let currentBoxGap = serialBoxes.boxGap;
+    Math.max(0, items.length - 1) * currentSerialBoxGap;
+  let currentBoxGap = currentSerialBoxGap;
 
   // If total height exceeds available space, reduce gaps
   if (totalBoxesH > availableHeight) {
@@ -287,7 +300,7 @@ const generateBoxSticker = async (
   // Center the serial boxes vertically
   const boxesStartY =
     serialAreaTop +
-    serialBoxes.serialTopExtra +
+    currentSerialTopExtra +
     Math.max(0, Math.floor((availableHeight - totalBoxesH) / 2));
 
   // Draw serial number boxes with dynamic heights
@@ -305,7 +318,7 @@ const generateBoxSticker = async (
     const textY = currentY + (boxHeight - textHeight) / 2;
 
     doc
-      .fontSize(font.sizes.serial)
+      .fontSize(currentSerialFontSize)
       .text(serialTexts[index], serialBoxX + textPadding, textY, {
         width: serialBoxWidth - textPadding * 2,
         align: 'left',
@@ -314,10 +327,13 @@ const generateBoxSticker = async (
     // Move to next box position
     currentY += boxHeight + currentBoxGap;
   });
+
   // --- Right Column Content ---
   let yPositionRight = drawStartY + margin + qr.yOffset;
-  const qrCodeWidth = qr.width;
-  const qrCodeSpacing = qr.spacing;
+  const qrCodeWidth = currentQrWidth;
+  const qrCodeSpacing = currentQrSpacing;
+
+  let maxQrRowBottom = yPositionRight + qrCodeWidth;
 
   if (qrCodes && qrCodes.length > 0) {
     if ((type === 'single_unit' || type === 'individual') && qrCodes[0]) {
@@ -330,26 +346,39 @@ const generateBoxSticker = async (
         yPositionRight,
         { width: qrCodeWidth }
       );
+      maxQrRowBottom = yPositionRight + qrCodeWidth;
     } else {
       const validQrCodes = qrCodes.filter(Boolean);
-      const totalQrWidth =
-        validQrCodes.length * qrCodeWidth +
-        Math.max(0, validQrCodes.length - 1) * qrCodeSpacing;
+      // Place all QR codes in a single row
+      const maxPerRow = validQrCodes.length;
+      const rowCount = Math.ceil(validQrCodes.length / maxPerRow);
+      const rowQrWidth =
+        maxPerRow * qrCodeWidth + Math.max(0, maxPerRow - 1) * qrCodeSpacing;
       const qrStartX =
-        rightColX + Math.max(0, (rightColWidth - totalQrWidth) / 2);
+        rightColX + Math.max(0, (rightColWidth - rowQrWidth) / 2);
+      const qrRowSpacing = qrCodeWidth + qrCodeSpacing; // vertical gap between rows
       validQrCodes.forEach((qrCode, index) => {
+        const col = index % maxPerRow;
+        const row = Math.floor(index / maxPerRow);
+        const currentQrY = yPositionRight + row * qrRowSpacing;
         doc.image(
           qrCode,
-          qrStartX + index * (qrCodeWidth + qrCodeSpacing),
-          yPositionRight,
+          qrStartX + col * (qrCodeWidth + qrCodeSpacing),
+          currentQrY,
           { width: qrCodeWidth }
         );
+        const bottom = currentQrY + qrCodeWidth;
+        if (bottom > maxQrRowBottom) {
+          maxQrRowBottom = bottom;
+        }
       });
     }
   }
 
   // --- Specifications Section ---
-  yPositionRight = drawStartY + columns.rightSpecsY;
+  // Position specs below the QR codes with some padding, but respect columns.rightSpecsY if there is space
+  let specsStartY = Math.max(columns.rightSpecsY, maxQrRowBottom + 8);
+  yPositionRight = drawStartY + specsStartY;
   const specsData = model?.specifications || {};
   let displayWeight = 'N/A';
   if (specsData.grossWeight) {
@@ -381,23 +410,32 @@ const generateBoxSticker = async (
     ['MFG DATE', mfgDate],
   ];
 
+  const isSpecsCompact = false;
+  const specFontSize = isSpecsCompact ? 8 : font.sizes.specsLabel;
+  const specValueFontSize = isSpecsCompact ? 8 : font.sizes.specsValue;
+  const taxNoteFontSize = isSpecsCompact ? 6.5 : font.sizes.taxNote;
+  const specLineSpacing = isSpecsCompact ? 12 : 16;
+  const mfgDateSpacing = isSpecsCompact ? 2 : 5;
+  const taxNoteOffset = isSpecsCompact ? 4 : 6;
+  const taxNoteExtraSpacing = isSpecsCompact ? 1 : 2;
+
   specItems.forEach(([label, value]) => {
-    if (label === 'MFG DATE') yPositionRight += 5;
+    if (label === 'MFG DATE') yPositionRight += mfgDateSpacing;
     doc
       .font(font.bold)
-      .fontSize(font.sizes.specsLabel)
+      .fontSize(specFontSize)
       .text(label, rightColX, yPositionRight);
     doc
       .font(font.bold)
-      .fontSize(font.sizes.specsValue)
+      .fontSize(specValueFontSize)
       .text(`: ${value}`, rightColX + columns.specLabelWidth, yPositionRight);
-    yPositionRight += 16;
+    yPositionRight += specLineSpacing;
     if (label === 'MRP Rs.') {
       doc
         .font(font.bold)
-        .fontSize(font.sizes.taxNote)
-        .text('(Incl of all taxes)', rightColX, yPositionRight - 6);
-      yPositionRight += 2;
+        .fontSize(taxNoteFontSize)
+        .text('(Incl of all taxes)', rightColX, yPositionRight - taxNoteOffset);
+      yPositionRight += taxNoteExtraSpacing;
     }
   });
 
@@ -406,7 +444,7 @@ const generateBoxSticker = async (
   doc.fontSize(font.sizes.footer);
   [
     'MKTD BY - SUPER POWER ENERGY',
-    'F-40, Road No. 2 VKI Industrial Area, Jaipur, Rajasthan - 302013',
+    'F-527, Road No. 6, VKI Industrial Area, Jaipur (Raj) - 302013.',
     'Email : ujalacustomercare@gmail.com | Service No - Delhi : 8595725671 , Others : 63769 11917',
   ].forEach((line, index) => {
     doc.text(line, drawStartX + margin, footerY + index * footer.lineSpacing, {
