@@ -90,7 +90,16 @@ const getModelsByCategory = async (req, res) => {
 
 const createModel = async (req, res) => {
   try {
-    const { name, code, category, specifications, warranty, status, incentive, points } = req.body;
+    const {
+      name,
+      code,
+      category,
+      specifications,
+      warranty,
+      status,
+      incentive,
+      points,
+    } = req.body;
 
     // Basic validation
     if (!name || !code || !category || !specifications) {
@@ -130,7 +139,9 @@ const createModel = async (req, res) => {
       specifications: {
         quantity: specifications.quantity || '1N',
         grossWeight: sanitizeInput(specifications.grossWeight),
-        kwHp: sanitizeInput(specifications.kwHp),
+        kwHp: sanitizeInput(specifications.kwHp)
+          .replace(/&#x2F;/gi, '/')
+          .replace(/&amp;#x2F;/gi, '/'),
         voltage: sanitizeInput(specifications.voltage),
         mrpPrice: Number(specifications.mrpPrice),
       },
@@ -171,7 +182,16 @@ const createModel = async (req, res) => {
 const updateModel = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, code, category, specifications, warranty, status, incentive, points } = req.body;
+    const {
+      name,
+      code,
+      category,
+      specifications,
+      warranty,
+      status,
+      incentive,
+      points,
+    } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res
@@ -211,6 +231,17 @@ const updateModel = async (req, res) => {
       updateData.specifications = {
         ...model.specifications,
         ...specifications,
+        grossWeight: specifications.grossWeight
+          ? sanitizeInput(specifications.grossWeight)
+          : model.specifications.grossWeight,
+        kwHp: specifications.kwHp
+          ? sanitizeInput(specifications.kwHp)
+              .replace(/&#x2F;/gi, '/')
+              .replace(/&amp;#x2F;/gi, '/')
+          : model.specifications.kwHp,
+        voltage: specifications.voltage
+          ? sanitizeInput(specifications.voltage)
+          : model.specifications.voltage,
         mrpPrice: specifications.mrpPrice
           ? Number(specifications.mrpPrice)
           : model.specifications.mrpPrice,

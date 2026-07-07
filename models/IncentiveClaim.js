@@ -1,15 +1,15 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
 const incentiveClaimSchema = new mongoose.Schema(
   {
     sale: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Sale",
+      ref: 'Sale',
       required: true,
     },
     sellerType: {
       type: String,
-      enum: ["Distributor", "Dealer", "SubDealer"],
+      enum: ['Distributor', 'Dealer', 'SubDealer'],
       required: true,
     },
     sellerId: {
@@ -22,7 +22,7 @@ const incentiveClaimSchema = new mongoose.Schema(
     },
     product: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Product",
+      ref: 'Product',
       required: true,
     },
     serialNumber: {
@@ -30,7 +30,7 @@ const incentiveClaimSchema = new mongoose.Schema(
     },
     model: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Model",
+      ref: 'Model',
     },
     modelName: {
       type: String,
@@ -50,12 +50,12 @@ const incentiveClaimSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["Approval Pending", "Approved", "Rejected", "Incomplete"],
-      default: "Approval Pending",
+      enum: ['Approval Pending', 'Approved', 'Rejected', 'Incomplete'],
+      default: 'Approval Pending',
     },
     rejectionReason: {
       type: String,
-      default: "",
+      default: '',
     },
     claimDate: {
       type: Date,
@@ -69,4 +69,4 @@ incentiveClaimSchema.index({ sellerId: 1 });
 incentiveClaimSchema.index({ status: 1 });
 incentiveClaimSchema.index({ claimDate: -1 });
 
-export default mongoose.model("IncentiveClaim", incentiveClaimSchema);
+export default mongoose.model('IncentiveClaim', incentiveClaimSchema);

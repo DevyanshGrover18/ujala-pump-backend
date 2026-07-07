@@ -168,8 +168,19 @@ export const uploadOfflineProducts = async (req, res) => {
   try {
     const { factoryId, modelId, serialNumbers } = req.body;
 
-    if (!factoryId || !modelId || !serialNumbers || !Array.isArray(serialNumbers) || serialNumbers.length === 0) {
-      return res.status(400).json({ message: 'Factory, model, and an array of serial numbers are required.' });
+    if (
+      !factoryId ||
+      !modelId ||
+      !serialNumbers ||
+      !Array.isArray(serialNumbers) ||
+      serialNumbers.length === 0
+    ) {
+      return res
+        .status(400)
+        .json({
+          message:
+            'Factory, model, and an array of serial numbers are required.',
+        });
     }
 
     // Determine current month and year automatically
@@ -191,12 +202,16 @@ export const uploadOfflineProducts = async (req, res) => {
     }
 
     // Check for existing serial numbers to prevent duplicates
-    const existingProducts = await Product.find({ serialNumber: { $in: serialNumbers } });
+    const existingProducts = await Product.find({
+      serialNumber: { $in: serialNumbers },
+    });
     if (existingProducts.length > 0) {
-      const existingSerials = existingProducts.map(p => p.serialNumber).join(', ');
-      return res.status(400).json({ 
+      const existingSerials = existingProducts
+        .map((p) => p.serialNumber)
+        .join(', ');
+      return res.status(400).json({
         message: 'Some serial numbers already exist in the database.',
-        existing: existingSerials
+        existing: existingSerials,
       });
     }
 
@@ -240,13 +255,13 @@ export const uploadOfflineProducts = async (req, res) => {
 
     res.status(201).json({
       message: `${insertedProducts.length} products successfully uploaded.`,
-      count: insertedProducts.length
+      count: insertedProducts.length,
     });
   } catch (error) {
     if (error.code === 11000) {
       return res.status(409).json({
         message: 'Duplicate serial number or product ID detected.',
-        error: error.message
+        error: error.message,
       });
     }
     res.status(500).json({ message: error.message });

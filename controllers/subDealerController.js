@@ -70,12 +70,12 @@ export const getSubDealers = async (req, res) => {
             {
               $match: {
                 $expr: { $eq: ['$subDealer', '$$sdId'] },
-                customerName: { $exists: true, $ne: null, $ne: '' }
-              }
-            }
+                customerName: { $exists: true, $ne: null, $ne: '' },
+              },
+            },
           ],
-          as: 'salesItems'
-        }
+          as: 'salesItems',
+        },
       },
       {
         $addFields: {
@@ -216,11 +216,10 @@ export const updateSubDealer = async (req, res) => {
       }
     } else {
       // If no password change, just update other fields
-      await SubDealer.findByIdAndUpdate(
-        req.params.id,
-        updateData,
-        { new: true, runValidators: true }
-      );
+      await SubDealer.findByIdAndUpdate(req.params.id, updateData, {
+        new: true,
+        runValidators: true,
+      });
     }
 
     const updated = await SubDealer.findByIdAndUpdate(
@@ -321,18 +320,21 @@ export const getSubDealerSalesCombined = async (req, res) => {
       const Executive = (await import('../models/Executive.js')).default;
       const exec = await Executive.findOne({ user: req.user.id });
       if (!exec || !exec.subDealers.includes(id)) {
-        return res.status(403).json({ message: 'Access denied. This sub-dealer is not assigned to you.' });
+        return res
+          .status(403)
+          .json({
+            message: 'Access denied. This sub-dealer is not assigned to you.',
+          });
       }
     }
 
     const sales = await Sale.find({
       subDealer: id,
-      customerName: { $exists: true, $ne: '' }
-    })
-      .populate({
-        path: 'product',
-        populate: { path: 'model' }
-      });
+      customerName: { $exists: true, $ne: '' },
+    }).populate({
+      path: 'product',
+      populate: { path: 'model' },
+    });
 
     res.json(sales);
   } catch (error) {
@@ -349,18 +351,21 @@ export const getSubDealerInventoryCombined = async (req, res) => {
       const Executive = (await import('../models/Executive.js')).default;
       const exec = await Executive.findOne({ user: req.user.id });
       if (!exec || !exec.subDealers.includes(id)) {
-        return res.status(403).json({ message: 'Access denied. This sub-dealer is not assigned to you.' });
+        return res
+          .status(403)
+          .json({
+            message: 'Access denied. This sub-dealer is not assigned to you.',
+          });
       }
     }
 
     const inventory = await Sale.find({
       subDealer: id,
-      customerName: { $exists: false }
-    })
-      .populate({
-        path: 'product',
-        populate: { path: 'model' }
-      });
+      customerName: { $exists: false },
+    }).populate({
+      path: 'product',
+      populate: { path: 'model' },
+    });
 
     res.json(inventory);
   } catch (error) {

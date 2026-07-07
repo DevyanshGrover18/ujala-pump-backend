@@ -265,18 +265,31 @@ export const createOrder = async (req, res) => {
     delete cleanOrderData.dispatchedAt;
 
     const unitsPerBox =
-      orderType === '2_units' ? 2 : orderType === '3_units' ? 3 : orderType === '4_units' ? 4 : 1;
+      orderType === '2_units'
+        ? 2
+        : orderType === '3_units'
+          ? 3
+          : orderType === '4_units'
+            ? 4
+            : 1;
     const totalUnits = quantity * unitsPerBox;
 
-    const isManualOrder = isManual === true || isManual === 'true' || (Array.isArray(serialNumbers) && serialNumbers.length > 0);
+    const isManualOrder =
+      isManual === true ||
+      isManual === 'true' ||
+      (Array.isArray(serialNumbers) && serialNumbers.length > 0);
 
     // Validate manual serial numbers if isManualOrder is true
     const serials = [];
     if (isManualOrder) {
-      const parsedSerials = (Array.isArray(serialNumbers) ? serialNumbers :
-        (typeof serialNumbers === 'string' ? serialNumbers.split(',') : [])
+      const parsedSerials = (
+        Array.isArray(serialNumbers)
+          ? serialNumbers
+          : typeof serialNumbers === 'string'
+            ? serialNumbers.split(',')
+            : []
       )
-        .map(s => s.trim().toUpperCase())
+        .map((s) => s.trim().toUpperCase())
         .filter(Boolean);
 
       if (parsedSerials.length !== totalUnits) {
@@ -288,22 +301,26 @@ export const createOrder = async (req, res) => {
       // Check for duplicate serials within the input array
       const uniqueSerials = [...new Set(parsedSerials)];
       if (uniqueSerials.length !== parsedSerials.length) {
-        const duplicates = parsedSerials.filter((item, index) => parsedSerials.indexOf(item) !== index);
+        const duplicates = parsedSerials.filter(
+          (item, index) => parsedSerials.indexOf(item) !== index
+        );
         return res.status(400).json({
           message: `Duplicate serial numbers found in input: ${[...new Set(duplicates)].join(', ')}`,
         });
       }
 
       // Check if any of these serials exist in OrderItem or Product database (case-insensitive)
-      const regexSerials = parsedSerials.map(sn => new RegExp(`^${sn}$`, 'i'));
+      const regexSerials = parsedSerials.map(
+        (sn) => new RegExp(`^${sn}$`, 'i')
+      );
       const [existingItems, existingProducts] = await Promise.all([
         OrderItem.find({ serialNumber: { $in: regexSerials } }),
-        Product.find({ serialNumber: { $in: regexSerials } })
+        Product.find({ serialNumber: { $in: regexSerials } }),
       ]);
       if (existingItems.length > 0 || existingProducts.length > 0) {
         const dupSerials = [
-          ...existingItems.map(item => item.serialNumber),
-          ...existingProducts.map(p => p.serialNumber)
+          ...existingItems.map((item) => item.serialNumber),
+          ...existingProducts.map((p) => p.serialNumber),
         ];
         const uniqueDupSerials = [...new Set(dupSerials)];
         return res.status(400).json({
@@ -489,28 +506,40 @@ export const updateOrder = async (req, res) => {
         .json({ message: 'Not authorized to update orders for this factory' });
     }
 
-    const isManualOrder = existingOrder.isManual === true || (Array.isArray(newSerialNumbers) && newSerialNumbers.length > 0);
+    const isManualOrder =
+      existingOrder.isManual === true ||
+      (Array.isArray(newSerialNumbers) && newSerialNumbers.length > 0);
     let serialsChanged = false;
     let parsedSerials = [];
 
     if (isManualOrder) {
-      parsedSerials = (Array.isArray(newSerialNumbers) ? newSerialNumbers :
-        (typeof newSerialNumbers === 'string' ? newSerialNumbers.split(',') : [])
+      parsedSerials = (
+        Array.isArray(newSerialNumbers)
+          ? newSerialNumbers
+          : typeof newSerialNumbers === 'string'
+            ? newSerialNumbers.split(',')
+            : []
       )
-        .map(s => s.trim().toUpperCase())
+        .map((s) => s.trim().toUpperCase())
         .filter(Boolean);
 
       // Check if serials changed
       if (parsedSerials.length > 0) {
-        const existingItems = await OrderItem.find({ orderId: existingOrder.orderId });
-        const existingSerials = existingItems.map(item => item.serialNumber.toUpperCase());
+        const existingItems = await OrderItem.find({
+          orderId: existingOrder.orderId,
+        });
+        const existingSerials = existingItems.map((item) =>
+          item.serialNumber.toUpperCase()
+        );
         if (!arraysEqual(parsedSerials, existingSerials)) {
           serialsChanged = true;
         }
       } else {
         // If not provided in req.body, keep the existing serials
-        const existingItems = await OrderItem.find({ orderId: existingOrder.orderId });
-        parsedSerials = existingItems.map(item => item.serialNumber);
+        const existingItems = await OrderItem.find({
+          orderId: existingOrder.orderId,
+        });
+        parsedSerials = existingItems.map((item) => item.serialNumber);
       }
     }
 
@@ -522,7 +551,13 @@ export const updateOrder = async (req, res) => {
         const quantity = orderData.quantity || existingOrder.quantity;
         const orderType = orderData.orderType || existingOrder.orderType;
         const unitsPerBox =
-          orderType === '2_units' ? 2 : orderType === '3_units' ? 3 : orderType === '4_units' ? 4 : 1;
+          orderType === '2_units'
+            ? 2
+            : orderType === '3_units'
+              ? 3
+              : orderType === '4_units'
+                ? 4
+                : 1;
         const totalUnits = quantity * unitsPerBox;
 
         orderData.unitsPerBox = unitsPerBox;
@@ -532,36 +567,54 @@ export const updateOrder = async (req, res) => {
 
         if (isManualOrder) {
           if (parsedSerials.length !== totalUnits) {
-            throw new Error(`The number of pumps (${totalUnits}) does not match the number of serial numbers provided (${parsedSerials.length}).`);
+            throw new Error(
+              `The number of pumps (${totalUnits}) does not match the number of serial numbers provided (${parsedSerials.length}).`
+            );
           }
 
           // Check for duplicate serials within the input array
           const uniqueSerials = [...new Set(parsedSerials)];
           if (uniqueSerials.length !== parsedSerials.length) {
-            const duplicates = parsedSerials.filter((item, index) => parsedSerials.indexOf(item) !== index);
-            throw new Error(`Duplicate serial numbers found in input: ${[...new Set(duplicates)].join(', ')}`);
+            const duplicates = parsedSerials.filter(
+              (item, index) => parsedSerials.indexOf(item) !== index
+            );
+            throw new Error(
+              `Duplicate serial numbers found in input: ${[...new Set(duplicates)].join(', ')}`
+            );
           }
 
           // Check if any of these serials exist in OrderItem or Product database (excluding current order, case-insensitive)
-          const regexSerials = parsedSerials.map(sn => new RegExp(`^${sn}$`, 'i'));
+          const regexSerials = parsedSerials.map(
+            (sn) => new RegExp(`^${sn}$`, 'i')
+          );
           const [dbDuplicates, dbProductDuplicates] = await Promise.all([
-            OrderItem.find({
-              serialNumber: { $in: regexSerials },
-              orderId: { $ne: existingOrder.orderId }
-            }, {}, { session }),
-            Product.find({
-              serialNumber: { $in: regexSerials },
-              orderId: { $ne: existingOrder.orderId }
-            }, {}, { session })
+            OrderItem.find(
+              {
+                serialNumber: { $in: regexSerials },
+                orderId: { $ne: existingOrder.orderId },
+              },
+              {},
+              { session }
+            ),
+            Product.find(
+              {
+                serialNumber: { $in: regexSerials },
+                orderId: { $ne: existingOrder.orderId },
+              },
+              {},
+              { session }
+            ),
           ]);
 
           if (dbDuplicates.length > 0 || dbProductDuplicates.length > 0) {
             const dupSerials = [
-              ...dbDuplicates.map(item => item.serialNumber),
-              ...dbProductDuplicates.map(p => p.serialNumber)
+              ...dbDuplicates.map((item) => item.serialNumber),
+              ...dbProductDuplicates.map((p) => p.serialNumber),
             ];
             const uniqueDupSerials = [...new Set(dupSerials)];
-            throw new Error(`The following serial numbers already exist in the database: ${uniqueDupSerials.join(', ')}`);
+            throw new Error(
+              `The following serial numbers already exist in the database: ${uniqueDupSerials.join(', ')}`
+            );
           }
 
           // Delete old items

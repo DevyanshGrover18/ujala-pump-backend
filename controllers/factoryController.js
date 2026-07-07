@@ -297,11 +297,9 @@ export const updateOrderItemStatus = async (req, res) => {
 
     // Ensure the item actually belongs to the factory in the URL
     if (factoryId && orderItem.factory.toString() !== factoryId) {
-      return res
-        .status(400)
-        .json({
-          message: 'Order item does not belong to the specified factory',
-        });
+      return res.status(400).json({
+        message: 'Order item does not belong to the specified factory',
+      });
     }
 
     if (status === 'Dispatched' && orderItem.status !== 'Completed') {

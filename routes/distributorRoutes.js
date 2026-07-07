@@ -109,10 +109,6 @@ router.put(
 );
 
 // @route   GET /api/distributors/:id/sales
-router.get(
-  '/:id/sales',
-  verifyToken,
-  getDistributorSalesCombined
-);
+router.get('/:id/sales', verifyToken, getDistributorSalesCombined);
 
 export default router;

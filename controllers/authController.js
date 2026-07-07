@@ -377,9 +377,10 @@ export const resetPassword = async (req, res) => {
     }
 
     // Fetch user and save to trigger pre-save middleware for password hashing
-    const user = await User.findOne(
-      { username: request.username, role: request.role }
-    );
+    const user = await User.findOne({
+      username: request.username,
+      role: request.role,
+    });
     if (!user) {
       return res
         .status(404)

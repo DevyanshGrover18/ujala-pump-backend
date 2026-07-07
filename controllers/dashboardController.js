@@ -148,40 +148,54 @@ export const getExecutiveDashboardStats = async (req, res) => {
     // 2. Total Customers & Sales (direct or dealer/subdealer sales to customer)
     const totalCustomers = await Sale.countDocuments({
       distributor: { $in: exec.distributors },
-      customerName: { $exists: true, $ne: '' }
+      customerName: { $exists: true, $ne: '' },
     });
 
     const totalSales = totalCustomers; // Each sold item is a sale in WMS
 
     // 3. Inventory Summary
     const distributorInventory = await Product.aggregate([
-      { $match: { distributor: { $in: exec.distributors }, sold: { $ne: true } } },
-      { $lookup: { from: 'distributordealerproducts', localField: '_id', foreignField: 'product', as: 'assignment' } },
+      {
+        $match: {
+          distributor: { $in: exec.distributors },
+          sold: { $ne: true },
+        },
+      },
+      {
+        $lookup: {
+          from: 'distributordealerproducts',
+          localField: '_id',
+          foreignField: 'product',
+          as: 'assignment',
+        },
+      },
       { $match: { assignment: { $size: 0 } } },
-      { $count: 'count' }
+      { $count: 'count' },
     ]);
     const distStock = distributorInventory[0]?.count || 0;
 
     const dealerStock = await Sale.countDocuments({
       dealer: { $in: exec.dealers },
       subDealer: null,
-      customerName: { $exists: false }
+      customerName: { $exists: false },
     });
 
     const subDealerStock = await Sale.countDocuments({
       subDealer: { $in: exec.subDealers },
-      customerName: { $exists: false }
+      customerName: { $exists: false },
     });
 
     const inventorySummary = {
       distributors: distStock,
       dealers: dealerStock,
       subDealers: subDealerStock,
-      total: distStock + dealerStock + subDealerStock
+      total: distStock + dealerStock + subDealerStock,
     };
 
     // 4. Recent Orders
-    const productOrderIds = await Product.find({ distributor: { $in: exec.distributors } }).distinct('orderId');
+    const productOrderIds = await Product.find({
+      distributor: { $in: exec.distributors },
+    }).distinct('orderId');
     const recentOrders = await Order.find({ orderId: { $in: productOrderIds } })
       .populate('category', 'name')
       .populate('model', 'name')
@@ -194,62 +208,62 @@ export const getExecutiveDashboardStats = async (req, res) => {
       {
         $match: {
           distributor: { $in: exec.distributors },
-          sold: { $ne: true }
-        }
+          sold: { $ne: true },
+        },
       },
       {
         $lookup: {
           from: 'distributordealerproducts',
           localField: '_id',
           foreignField: 'product',
-          as: 'dealerAssignment'
-        }
+          as: 'dealerAssignment',
+        },
       },
       {
         $match: {
-          dealerAssignment: { $size: 0 }
-        }
+          dealerAssignment: { $size: 0 },
+        },
       },
       {
         $group: {
           _id: '$model',
-          count: { $sum: 1 }
-        }
+          count: { $sum: 1 },
+        },
       },
       {
         $match: {
-          count: { $lte: 5 }
-        }
+          count: { $lte: 5 },
+        },
       },
       {
         $lookup: {
           from: 'models',
           localField: '_id',
           foreignField: '_id',
-          as: 'modelDetails'
-        }
+          as: 'modelDetails',
+        },
       },
-      { $unwind: '$modelDetails' }
+      { $unwind: '$modelDetails' },
     ]);
 
-    const lowStockProducts = lowStockAggregation.map(item => ({
+    const lowStockProducts = lowStockAggregation.map((item) => ({
       modelId: item._id,
       name: item.modelDetails.name,
       code: item.modelDetails.code,
-      stock: item.count
+      stock: item.count,
     }));
 
     // 6. Recent Customer Activity (recent sales where customerName is present)
     const recentCustomerActivity = await Sale.find({
       distributor: { $in: exec.distributors },
-      customerName: { $exists: true, $ne: '' }
+      customerName: { $exists: true, $ne: '' },
     })
       .populate('distributor', 'name')
       .populate('dealer', 'name')
       .populate('subDealer', 'name')
       .populate({
         path: 'product',
-        populate: { path: 'model' }
+        populate: { path: 'model' },
       })
       .sort({ saleDate: -1, createdAt: -1 })
       .limit(5);
@@ -260,12 +274,12 @@ export const getExecutiveDashboardStats = async (req, res) => {
         dealers: totalDealers,
         subDealers: totalSubDealers,
         customers: totalCustomers,
-        sales: totalSales
+        sales: totalSales,
       },
       inventorySummary,
       recentOrders,
       lowStockProducts,
-      recentCustomerActivity
+      recentCustomerActivity,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

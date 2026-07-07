@@ -78,10 +78,10 @@ export const getDealers = async (req, res) => {
                 $expr: { $eq: ['$dealer', '$$dId'] },
                 $or: [
                   { subDealer: { $exists: true, $ne: null } },
-                  { customerName: { $exists: true, $ne: null, $ne: '' } }
-                ]
-              }
-            }
+                  { customerName: { $exists: true, $ne: null, $ne: '' } },
+                ],
+              },
+            },
           ],
           as: 'salesItems',
         },
@@ -376,44 +376,47 @@ export const getDealerSalesCombined = async (req, res) => {
       const Executive = (await import('../models/Executive.js')).default;
       const exec = await Executive.findOne({ user: req.user.id });
       if (!exec || !exec.dealers.includes(id)) {
-        return res.status(403).json({ message: 'Access denied. This dealer is not assigned to you.' });
+        return res
+          .status(403)
+          .json({
+            message: 'Access denied. This dealer is not assigned to you.',
+          });
       }
     }
 
     const subDealerSales = await DealerSubDealerProduct.find({ dealer: id })
       .populate({
         path: 'product',
-        populate: { path: 'model' }
+        populate: { path: 'model' },
       })
       .populate('subDealer', 'name');
 
     const customerSales = await Sale.find({
       dealer: id,
       subDealer: null,
-      customerName: { $exists: true, $ne: '' }
-    })
-      .populate({
-        path: 'product',
-        populate: { path: 'model' }
-      });
+      customerName: { $exists: true, $ne: '' },
+    }).populate({
+      path: 'product',
+      populate: { path: 'model' },
+    });
 
     const combined = [
-      ...subDealerSales.map(s => ({
+      ...subDealerSales.map((s) => ({
         _id: s._id,
         serialNumber: s.product?.serialNumber,
         modelName: s.product?.model?.name || 'Unknown',
         type: 'Sub Dealer Sale',
         soldTo: s.subDealer?.name || 'Unknown Sub Dealer',
-        date: s.createdAt
+        date: s.createdAt,
       })),
-      ...customerSales.map(c => ({
+      ...customerSales.map((c) => ({
         _id: c._id,
         serialNumber: c.product?.serialNumber,
         modelName: c.product?.model?.name || 'Unknown',
         type: 'Direct Customer Sale',
         soldTo: c.customerName || 'Customer',
-        date: c.createdAt
-      }))
+        date: c.createdAt,
+      })),
     ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     res.json(combined);
@@ -431,19 +434,22 @@ export const getDealerInventoryCombined = async (req, res) => {
       const Executive = (await import('../models/Executive.js')).default;
       const exec = await Executive.findOne({ user: req.user.id });
       if (!exec || !exec.dealers.includes(id)) {
-        return res.status(403).json({ message: 'Access denied. This dealer is not assigned to you.' });
+        return res
+          .status(403)
+          .json({
+            message: 'Access denied. This dealer is not assigned to you.',
+          });
       }
     }
 
     const inventory = await Sale.find({
       dealer: id,
       subDealer: null,
-      customerName: { $exists: false }
-    })
-      .populate({
-        path: 'product',
-        populate: { path: 'model' }
-      });
+      customerName: { $exists: false },
+    }).populate({
+      path: 'product',
+      populate: { path: 'model' },
+    });
 
     res.json(inventory);
   } catch (error) {

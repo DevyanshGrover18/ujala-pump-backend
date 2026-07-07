@@ -91,11 +91,11 @@ export const getDistributors = async (req, res) => {
                 $expr: {
                   $and: [
                     { $eq: ['$distributor', '$$distId'] },
-                    { $eq: [{ $ifNull: ['$dealer', null] }, null] }
-                  ]
-                }
-              }
-            }
+                    { $eq: [{ $ifNull: ['$dealer', null] }, null] },
+                  ],
+                },
+              },
+            },
           ],
           as: 'customerSales',
         },
@@ -104,7 +104,9 @@ export const getDistributors = async (req, res) => {
         $addFields: {
           productCount: { $size: '$availableProducts' },
           inventoryCount: { $size: '$availableProducts' },
-          salesCount: { $add: [{ $size: '$dealerSales' }, { $size: '$customerSales' }] },
+          salesCount: {
+            $add: [{ $size: '$dealerSales' }, { $size: '$customerSales' }],
+          },
           dealerCount: {
             $size: {
               $filter: {
@@ -199,8 +201,10 @@ export const createDistributor = async (req, res) => {
       contactPerson,
       contactPhone,
       distributorId: newDistributorId,
-      eligibleForIncentive: eligibleForIncentive !== undefined ? eligibleForIncentive : true,
-      eligibleForPoints: eligibleForPoints !== undefined ? eligibleForPoints : true,
+      eligibleForIncentive:
+        eligibleForIncentive !== undefined ? eligibleForIncentive : true,
+      eligibleForPoints:
+        eligibleForPoints !== undefined ? eligibleForPoints : true,
     });
 
     const createdDistributor = await distributor.save();
@@ -259,15 +263,14 @@ export const updateDistributor = async (req, res) => {
       }
     } else {
       // If no password change, just update other fields
-      await Distributor.findByIdAndUpdate(
-        req.params.id,
-        updateData,
-        { new: true, runValidators: true }
-      );
+      await Distributor.findByIdAndUpdate(req.params.id, updateData, {
+        new: true,
+        runValidators: true,
+      });
     }
 
     // Re-fetch distributor with updated fields
-    const updatedDistributor = await Distributor.findById(req.params.id)
+    const updatedDistributor = await Distributor.findById(req.params.id);
 
     res.json(updatedDistributor);
   } catch (error) {
@@ -710,20 +713,24 @@ export const updateDealerForDistributor = async (req, res) => {
 export const getDistributorSalesCombined = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Validate request role-based access if executive
     if (req.user && req.user.role === 'executive') {
       const Executive = (await import('../models/Executive.js')).default;
       const exec = await Executive.findOne({ user: req.user.id });
       if (!exec || !exec.distributors.includes(id)) {
-        return res.status(403).json({ message: 'Access denied. This distributor is not assigned to you.' });
+        return res
+          .status(403)
+          .json({
+            message: 'Access denied. This distributor is not assigned to you.',
+          });
       }
     }
 
     const dealerSales = await DistributorDealerProduct.find({ distributor: id })
       .populate({
         path: 'product',
-        populate: { path: 'model' }
+        populate: { path: 'model' },
       })
       .populate('dealer', 'name');
 
@@ -731,30 +738,29 @@ export const getDistributorSalesCombined = async (req, res) => {
       distributor: id,
       dealer: null,
       subDealer: null,
-      customerName: { $exists: true, $ne: '' }
-    })
-      .populate({
-        path: 'product',
-        populate: { path: 'model' }
-      });
+      customerName: { $exists: true, $ne: '' },
+    }).populate({
+      path: 'product',
+      populate: { path: 'model' },
+    });
 
     const combined = [
-      ...dealerSales.map(ds => ({
+      ...dealerSales.map((ds) => ({
         _id: ds._id,
         serialNumber: ds.product?.serialNumber,
         modelName: ds.product?.model?.name || 'Unknown',
         type: 'Dealer Sale',
         soldTo: ds.dealer?.name || 'Unknown Dealer',
-        date: ds.createdAt
+        date: ds.createdAt,
       })),
-      ...customerSales.map(cs => ({
+      ...customerSales.map((cs) => ({
         _id: cs._id,
         serialNumber: cs.product?.serialNumber,
         modelName: cs.product?.model?.name || 'Unknown',
         type: 'Direct Customer Sale',
         soldTo: cs.customerName || 'Customer',
-        date: cs.createdAt
-      }))
+        date: cs.createdAt,
+      })),
     ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     res.json(combined);

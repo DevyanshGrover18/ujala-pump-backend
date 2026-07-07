@@ -54,7 +54,6 @@ export const assignProductToDealer = async (req, res) => {
   }
 };
 
-
 export const getDealerProducts = async (req, res) => {
   try {
     const dealerId = req.params.dealerId;
@@ -116,7 +115,6 @@ export const getDealerProducts = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 export const getDealerProductsInventroy = async (req, res) => {
   try {
@@ -215,16 +213,18 @@ export const revertDealerAssignment = async (req, res) => {
       // $unset: { assignedWarranty: "" } // If Sale also stores assigned warranty that needs to be removed
     };
 
-
-    const saleUpdateResult = await Sale.updateMany(saleUpdateQuery, saleUpdateOperation);
-
+    const saleUpdateResult = await Sale.updateMany(
+      saleUpdateQuery,
+      saleUpdateOperation
+    );
 
     // 2. Delete the DistributorDealerProduct entries
-    const distributorDealerProductDeletionResult = await DistributorDealerProduct.deleteMany({
-      product: { $in: productIds },
-      dealer: dealerId,
-    });
-    
+    const distributorDealerProductDeletionResult =
+      await DistributorDealerProduct.deleteMany({
+        product: { $in: productIds },
+        dealer: dealerId,
+      });
+
     // 3. Update the Product documents to ensure consistency
     const productUpdateResult = await Product.updateMany(
       { _id: { $in: productIds } },
@@ -234,18 +234,27 @@ export const revertDealerAssignment = async (req, res) => {
           assignedToDealerAt: null,
           subDealer: null, // Also clear sub-dealer in case of inconsistent data
           assignedToSubDealerAt: null,
-        }
+        },
       }
     );
     console.log('Product.updateMany result:', productUpdateResult);
 
-    if (saleUpdateResult.modifiedCount === 0 && distributorDealerProductDeletionResult.deletedCount === 0 && productUpdateResult.modifiedCount === 0) {
-        return res.status(404).json({ message: 'No matching products found with this dealer to revert. They might already be reverted or not assigned to this dealer.' });
+    if (
+      saleUpdateResult.modifiedCount === 0 &&
+      distributorDealerProductDeletionResult.deletedCount === 0 &&
+      productUpdateResult.modifiedCount === 0
+    ) {
+      return res
+        .status(404)
+        .json({
+          message:
+            'No matching products found with this dealer to revert. They might already be reverted or not assigned to this dealer.',
+        });
     }
 
-
-    res.json({ message: `${saleUpdateResult.modifiedCount} products have been reverted from the dealer.` });
-
+    res.json({
+      message: `${saleUpdateResult.modifiedCount} products have been reverted from the dealer.`,
+    });
   } catch (error) {
     console.error('Error reverting dealer assignment:', error);
     res.status(500).json({ message: 'Internal server error' });

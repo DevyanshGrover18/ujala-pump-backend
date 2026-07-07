@@ -64,10 +64,13 @@ const modelSchema = new mongoose.Schema(
         required: [true, 'KW/HP is required'],
         validate: {
           validator: function (v) {
-            const normalized = v.replace(/&#x2F;/gi, '/').replace(/&amp;#x2F;/gi, '/');
+            const normalized = v
+              .replace(/&#x2F;/gi, '/')
+              .replace(/&amp;#x2F;/gi, '/');
             return /^[\d\.\/]+\s*(kw|hp|kw\/hp)?$/i.test(normalized);
           },
-          message: 'KW/HP must be a valid number or fraction (e.g. 1.1/1.5 or 0.75), optionally with a unit (kW, HP)',
+          message:
+            'KW/HP must be a valid number or fraction (e.g. 1.1/1.5 or 0.75), optionally with a unit (kW, HP)',
         },
       },
       voltage: {

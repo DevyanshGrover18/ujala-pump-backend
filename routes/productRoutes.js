@@ -12,7 +12,12 @@ import {
 const router = express.Router();
 
 router.get('/', verifyToken, checkSectionAccess('products'), getProducts);
-router.post('/offline', verifyToken, checkSectionAccess('products'), uploadOfflineProducts);
+router.post(
+  '/offline',
+  verifyToken,
+  checkSectionAccess('products'),
+  uploadOfflineProducts
+);
 router.get('/serial/:serialNumber', verifyToken, getProductBySerialNumber);
 
 export default router;

@@ -242,25 +242,48 @@ const generateBoxSticker = async (
   // --- Left Column Serial Numbers ---
   // Dynamic layout parameters based on items count
   const isFourUnit = items.length >= 4;
-  const currentSerialFontSize = isFourUnit ? 8 : (items.length === 3 ? 8.5 : font.sizes.serial);
-  const currentSerialBoxHeight = isFourUnit ? 14 : (items.length === 3 ? 15 : (items.length === 2 ? 16 : serialBoxes.boxHeight));
-  const currentSerialBoxGap = isFourUnit ? 3 : (items.length === 3 ? 4 : (items.length === 2 ? 6 : serialBoxes.boxGap));
+  const currentSerialFontSize = isFourUnit
+    ? 8
+    : items.length === 3
+      ? 8.5
+      : font.sizes.serial;
+  const currentSerialBoxHeight = isFourUnit
+    ? 14
+    : items.length === 3
+      ? 15
+      : items.length === 2
+        ? 16
+        : serialBoxes.boxHeight;
+  const currentSerialBoxGap = isFourUnit
+    ? 3
+    : items.length === 3
+      ? 4
+      : items.length === 2
+        ? 6
+        : serialBoxes.boxGap;
   const currentSerialReserveFooter = 52;
-  const currentSerialYOffset = isFourUnit ? 4 : (items.length === 3 ? 6 : serialBoxes.yOffset);
-  const currentSerialTopExtra = isFourUnit ? 2 : (items.length === 3 ? 4 : serialBoxes.serialTopExtra);
+  const currentSerialYOffset = isFourUnit
+    ? 4
+    : items.length === 3
+      ? 6
+      : serialBoxes.yOffset;
+  const currentSerialTopExtra = isFourUnit
+    ? 2
+    : items.length === 3
+      ? 4
+      : serialBoxes.serialTopExtra;
 
   // QR layout parameters - Fit all 4 QRs in a single row
   const qrCount = qrCodes ? qrCodes.filter(Boolean).length : 0;
-  const currentQrWidth = qrCount >= 4 ? 36 : (qrCount === 3 ? 44 : qr.width);
-  const currentQrSpacing = qrCount >= 4 ? 4 : (qrCount === 3 ? 6 : qr.spacing);
+  const currentQrWidth = qrCount >= 4 ? 36 : qrCount === 3 ? 44 : qr.width;
+  const currentQrSpacing = qrCount >= 4 ? 4 : qrCount === 3 ? 6 : qr.spacing;
 
   yPositionLeft += currentSerialYOffset;
   const serialBoxWidth = leftColWidth - serialBoxes.boxWidthPadding;
   const serialBoxX = leftColX + serialBoxes.boxWidthPadding / 2;
 
   const serialAreaTop = yPositionLeft;
-  const serialAreaBottom =
-    drawStartY + height - currentSerialReserveFooter;
+  const serialAreaBottom = drawStartY + height - currentSerialReserveFooter;
   const availableHeight = Math.max(0, serialAreaBottom - serialAreaTop);
 
   // Calculate required height for each serial number
@@ -752,7 +775,12 @@ export const downloadCombinedPDFs = async (req, res) => {
       const orderTypeA = a.orderType;
       const orderTypeB = b.orderType;
 
-      const orderMap = { '1_unit': 1, '2_units': 2, '3_units': 3, '4_units': 4 };
+      const orderMap = {
+        '1_unit': 1,
+        '2_units': 2,
+        '3_units': 3,
+        '4_units': 4,
+      };
 
       return orderMap[orderTypeA] - orderMap[orderTypeB];
     });

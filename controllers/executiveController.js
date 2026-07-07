@@ -42,24 +42,36 @@ export const createExecutive = async (req, res) => {
     // Server-side validation of hierarchy
     // 1. Check that all selected dealers belong to selected distributors
     if (dealers && dealers.length > 0) {
-      const dealerDocs = await Dealer.find({ _id: { $in: dealers } }).session(session);
+      const dealerDocs = await Dealer.find({ _id: { $in: dealers } }).session(
+        session
+      );
       for (const d of dealerDocs) {
         if (!distributors.includes(d.distributor.toString())) {
           await session.abortTransaction();
           session.endSession();
-          return res.status(400).json({ message: `Dealer ${d.name} does not belong to the selected distributors.` });
+          return res
+            .status(400)
+            .json({
+              message: `Dealer ${d.name} does not belong to the selected distributors.`,
+            });
         }
       }
     }
 
     // 2. Check that all selected subdealers belong to selected dealers
     if (subDealers && subDealers.length > 0) {
-      const subDealerDocs = await SubDealer.find({ _id: { $in: subDealers } }).session(session);
+      const subDealerDocs = await SubDealer.find({
+        _id: { $in: subDealers },
+      }).session(session);
       for (const sd of subDealerDocs) {
         if (!dealers.includes(sd.dealer.toString())) {
           await session.abortTransaction();
           session.endSession();
-          return res.status(400).json({ message: `Sub Dealer ${sd.name} does not belong to the selected dealers.` });
+          return res
+            .status(400)
+            .json({
+              message: `Sub Dealer ${sd.name} does not belong to the selected dealers.`,
+            });
         }
       }
     }
@@ -177,7 +189,10 @@ export const updateExecutive = async (req, res) => {
 
     // Username unique check
     if (username && username !== executive.username) {
-      const userExists = await User.findOne({ username, _id: { $ne: executive.user } }).session(session);
+      const userExists = await User.findOne({
+        username,
+        _id: { $ne: executive.user },
+      }).session(session);
       if (userExists) {
         await session.abortTransaction();
         session.endSession();
@@ -190,24 +205,36 @@ export const updateExecutive = async (req, res) => {
     // Server-side validation of hierarchy
     // 1. Check that all selected dealers belong to selected distributors
     if (dealers && dealers.length > 0) {
-      const dealerDocs = await Dealer.find({ _id: { $in: dealers } }).session(session);
+      const dealerDocs = await Dealer.find({ _id: { $in: dealers } }).session(
+        session
+      );
       for (const d of dealerDocs) {
         if (!distributors.includes(d.distributor.toString())) {
           await session.abortTransaction();
           session.endSession();
-          return res.status(400).json({ message: `Dealer ${d.name} does not belong to the selected distributors.` });
+          return res
+            .status(400)
+            .json({
+              message: `Dealer ${d.name} does not belong to the selected distributors.`,
+            });
         }
       }
     }
 
     // 2. Check that all selected subdealers belong to selected dealers
     if (subDealers && subDealers.length > 0) {
-      const subDealerDocs = await SubDealer.find({ _id: { $in: subDealers } }).session(session);
+      const subDealerDocs = await SubDealer.find({
+        _id: { $in: subDealers },
+      }).session(session);
       for (const sd of subDealerDocs) {
         if (!dealers.includes(sd.dealer.toString())) {
           await session.abortTransaction();
           session.endSession();
-          return res.status(400).json({ message: `Sub Dealer ${sd.name} does not belong to the selected dealers.` });
+          return res
+            .status(400)
+            .json({
+              message: `Sub Dealer ${sd.name} does not belong to the selected dealers.`,
+            });
         }
       }
     }
@@ -285,6 +312,41 @@ export const deleteExecutive = async (req, res) => {
   }
 };
 
+// Delete Multiple Executives
+export const deleteMultipleExecutives = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const { executiveIds } = req.body;
+    if (!executiveIds || executiveIds.length === 0) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: 'No executive IDs provided' });
+    }
+
+    // Find the executives to get their user IDs
+    const execs = await Executive.find({ _id: { $in: executiveIds } }).session(session);
+    const userIds = execs.map(e => e.user).filter(Boolean);
+
+    // Delete User records
+    if (userIds.length > 0) {
+      await User.deleteMany({ _id: { $in: userIds } }).session(session);
+    }
+
+    // Delete Executive records
+    await Executive.deleteMany({ _id: { $in: executiveIds } }).session(session);
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.json({ message: 'Executives deleted successfully' });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const getExecutiveCustomers = async (req, res) => {
   try {
     const exec = await Executive.findOne({ user: req.user.id });
@@ -295,14 +357,14 @@ export const getExecutiveCustomers = async (req, res) => {
     const { search } = req.query;
     let query = {
       distributor: { $in: exec.distributors },
-      customerName: { $exists: true, $ne: '' }
+      customerName: { $exists: true, $ne: '' },
     };
 
     if (search) {
       query.$or = [
         { customerName: { $regex: search, $options: 'i' } },
         { customerPhone: { $regex: search, $options: 'i' } },
-        { customerAddress: { $regex: search, $options: 'i' } }
+        { customerAddress: { $regex: search, $options: 'i' } },
       ];
     }
 
@@ -312,7 +374,7 @@ export const getExecutiveCustomers = async (req, res) => {
       .populate('subDealer', 'name')
       .populate({
         path: 'product',
-        populate: { path: 'model' }
+        populate: { path: 'model' },
       })
       .sort({ saleDate: -1, createdAt: -1 });
 

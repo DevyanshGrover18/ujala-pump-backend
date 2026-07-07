@@ -86,6 +86,10 @@ router.put(
 router.delete('/dealer/sub-dealers/:id', verifyToken, deleteSubDealer);
 
 router.get('/sub-dealers/:id/sales', verifyToken, getSubDealerSalesCombined);
-router.get('/sub-dealers/:id/inventory', verifyToken, getSubDealerInventoryCombined);
+router.get(
+  '/sub-dealers/:id/inventory',
+  verifyToken,
+  getSubDealerInventoryCombined
+);
 
 export default router;

@@ -83,12 +83,18 @@ export const revertSubDealerAssignment = async (req, res) => {
       return res.status(400).json({ message: 'Sub-Dealer ID is required.' });
     }
     if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
-      return res.status(400).json({ message: 'Product IDs array is required.' });
+      return res
+        .status(400)
+        .json({ message: 'Product IDs array is required.' });
     }
 
     // 1. Update the Sale entries: set subDealer to null
     const saleUpdateResult = await Sale.updateMany(
-      { product: { $in: productIds }, dealer: dealerId, subDealer: subDealerId },
+      {
+        product: { $in: productIds },
+        dealer: dealerId,
+        subDealer: subDealerId,
+      },
       { $set: { subDealer: null } }
     );
 
@@ -116,7 +122,8 @@ export const revertSubDealerAssignment = async (req, res) => {
       productUpdateResult.modifiedCount === 0
     ) {
       return res.status(404).json({
-        message: 'No matching products found assigned to this sub-dealer to revert.',
+        message:
+          'No matching products found assigned to this sub-dealer to revert.',
       });
     }
 

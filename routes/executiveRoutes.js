@@ -5,6 +5,7 @@ import {
   getExecutive,
   updateExecutive,
   deleteExecutive,
+  deleteMultipleExecutives,
   getExecutiveCustomers,
 } from '../controllers/executiveController.js';
 import { verifyToken } from '../middleware/roleMiddleware.js';
@@ -24,6 +25,7 @@ router.use(isAdmin);
 
 router.post('/', createExecutive);
 router.get('/', getExecutives);
+router.delete('/', deleteMultipleExecutives);
 router.get('/:id', getExecutive);
 router.put('/:id', updateExecutive);
 router.delete('/:id', deleteExecutive);

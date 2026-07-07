@@ -11,7 +11,15 @@ import mongoose from 'mongoose';
 import { login } from './authController.js';
 import Model from '../models/Model.js';
 
-const createIncentiveClaimHelper = async (sale, productId, customerName, customerPhone, subDealerId, dealerId, distributorId) => {
+const createIncentiveClaimHelper = async (
+  sale,
+  productId,
+  customerName,
+  customerPhone,
+  subDealerId,
+  dealerId,
+  distributorId
+) => {
   if (!customerName) return;
   try {
     let sellerType, sellerId, seller;
@@ -30,11 +38,17 @@ const createIncentiveClaimHelper = async (sale, productId, customerName, custome
     }
 
     if (seller) {
-      const freshProduct = await Product.findById(productId).populate('model').lean();
+      const freshProduct = await Product.findById(productId)
+        .populate('model')
+        .lean();
       const modelDoc = freshProduct?.model || null;
 
-      const eligibleIncentive = seller.eligibleForIncentive !== false && seller.eligibleForIncentive !== 'false';
-      const eligiblePoints = seller.eligibleForPoints !== false && seller.eligibleForPoints !== 'false';
+      const eligibleIncentive =
+        seller.eligibleForIncentive !== false &&
+        seller.eligibleForIncentive !== 'false';
+      const eligiblePoints =
+        seller.eligibleForPoints !== false &&
+        seller.eligibleForPoints !== 'false';
       const modelIncentive = Number(modelDoc?.incentive || 0);
       const modelPoints = Number(modelDoc?.points || 0);
 
@@ -65,7 +79,6 @@ const createIncentiveClaimHelper = async (sale, productId, customerName, custome
     console.error('IncentiveClaim creation helper error:', claimErr);
   }
 };
-
 
 export const getDealerSales = async (req, res) => {
   try {
@@ -273,7 +286,15 @@ export const createSale = async (req, res) => {
     session.endSession();
 
     // --- Auto-create IncentiveClaim when sold to a customer ---
-    await createIncentiveClaimHelper(sale, productId, customerName, customerPhone, subDealerId, dealerId, distributorId);
+    await createIncentiveClaimHelper(
+      sale,
+      productId,
+      customerName,
+      customerPhone,
+      subDealerId,
+      dealerId,
+      distributorId
+    );
     // --- End IncentiveClaim ---
 
     return res.status(201).json({
@@ -763,7 +784,15 @@ export const createSubDealerSale = async (req, res) => {
     await product.save();
 
     // --- Auto-create IncentiveClaim when sold to a customer ---
-    await createIncentiveClaimHelper(sale, productId, customerName, customerPhone, subDealerId, null, null);
+    await createIncentiveClaimHelper(
+      sale,
+      productId,
+      customerName,
+      customerPhone,
+      subDealerId,
+      null,
+      null
+    );
     // --- End IncentiveClaim ---
 
     res.status(201).json(sale);
@@ -1261,7 +1290,7 @@ export const adminCreateSale = async (req, res) => {
     plumberName,
     alternateMobileNumber,
     plumberMobileNumber,
-    saleDate
+    saleDate,
   } = req.body;
 
   const session = await mongoose.startSession();
@@ -1284,11 +1313,17 @@ export const adminCreateSale = async (req, res) => {
 
     // Determine current assignments to preserve history
     const distributorIdDb = product.distributor;
-    const dealerAssignment = await DistributorDealerProduct.findOne({ product: productId }).session(session);
-    const subDealerAssignment = await DealerSubDealerProduct.findOne({ product: productId }).session(session);
+    const dealerAssignment = await DistributorDealerProduct.findOne({
+      product: productId,
+    }).session(session);
+    const subDealerAssignment = await DealerSubDealerProduct.findOne({
+      product: productId,
+    }).session(session);
 
     const dealerIdDb = dealerAssignment ? dealerAssignment.dealer : null;
-    const subDealerIdDb = subDealerAssignment ? subDealerAssignment.subDealer : null;
+    const subDealerIdDb = subDealerAssignment
+      ? subDealerAssignment.subDealer
+      : null;
 
     let sale = await Sale.findOne({ product: productId }).session(session);
 
@@ -1325,17 +1360,31 @@ export const adminCreateSale = async (req, res) => {
 
     // Remove from active inventory of dealer/subdealer if applicable
     if (dealerIdDb) {
-      await DistributorDealerProduct.deleteOne({ product: productId, dealer: dealerIdDb }).session(session);
+      await DistributorDealerProduct.deleteOne({
+        product: productId,
+        dealer: dealerIdDb,
+      }).session(session);
     }
     if (subDealerIdDb) {
-      await DealerSubDealerProduct.deleteOne({ product: productId, subDealer: subDealerIdDb }).session(session);
+      await DealerSubDealerProduct.deleteOne({
+        product: productId,
+        subDealer: subDealerIdDb,
+      }).session(session);
     }
 
     await session.commitTransaction();
     session.endSession();
 
     // --- Auto-create IncentiveClaim when sold to a customer ---
-    await createIncentiveClaimHelper(sale, productId, customerName, customerPhone, subDealerIdDb, dealerIdDb, distributorIdDb);
+    await createIncentiveClaimHelper(
+      sale,
+      productId,
+      customerName,
+      customerPhone,
+      subDealerIdDb,
+      dealerIdDb,
+      distributorIdDb
+    );
     // --- End IncentiveClaim ---
 
     return res.status(201).json({
@@ -1347,6 +1396,8 @@ export const adminCreateSale = async (req, res) => {
     await session.abortTransaction();
     session.endSession();
     console.error('Admin Sale Error:', error);
-    return res.status(500).json({ message: 'Something went wrong while creating admin sale' });
+    return res
+      .status(500)
+      .json({ message: 'Something went wrong while creating admin sale' });
   }
 };

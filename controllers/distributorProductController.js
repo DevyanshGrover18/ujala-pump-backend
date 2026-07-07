@@ -301,7 +301,6 @@ const revertAssignedProducts = asyncHandler(async (req, res) => {
   }
 });
 
-
 export {
   getProducts,
   getDistributorProducts,
