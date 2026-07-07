@@ -719,11 +719,9 @@ export const getDistributorSalesCombined = async (req, res) => {
       const Executive = (await import('../models/Executive.js')).default;
       const exec = await Executive.findOne({ user: req.user.id });
       if (!exec || !exec.distributors.includes(id)) {
-        return res
-          .status(403)
-          .json({
-            message: 'Access denied. This distributor is not assigned to you.',
-          });
+        return res.status(403).json({
+          message: 'Access denied. This distributor is not assigned to you.',
+        });
       }
     }
 

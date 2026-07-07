@@ -244,12 +244,10 @@ export const revertDealerAssignment = async (req, res) => {
       distributorDealerProductDeletionResult.deletedCount === 0 &&
       productUpdateResult.modifiedCount === 0
     ) {
-      return res
-        .status(404)
-        .json({
-          message:
-            'No matching products found with this dealer to revert. They might already be reverted or not assigned to this dealer.',
-        });
+      return res.status(404).json({
+        message:
+          'No matching products found with this dealer to revert. They might already be reverted or not assigned to this dealer.',
+      });
     }
 
     res.json({

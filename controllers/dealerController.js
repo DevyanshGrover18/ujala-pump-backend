@@ -376,11 +376,9 @@ export const getDealerSalesCombined = async (req, res) => {
       const Executive = (await import('../models/Executive.js')).default;
       const exec = await Executive.findOne({ user: req.user.id });
       if (!exec || !exec.dealers.includes(id)) {
-        return res
-          .status(403)
-          .json({
-            message: 'Access denied. This dealer is not assigned to you.',
-          });
+        return res.status(403).json({
+          message: 'Access denied. This dealer is not assigned to you.',
+        });
       }
     }
 
@@ -434,11 +432,9 @@ export const getDealerInventoryCombined = async (req, res) => {
       const Executive = (await import('../models/Executive.js')).default;
       const exec = await Executive.findOne({ user: req.user.id });
       if (!exec || !exec.dealers.includes(id)) {
-        return res
-          .status(403)
-          .json({
-            message: 'Access denied. This dealer is not assigned to you.',
-          });
+        return res.status(403).json({
+          message: 'Access denied. This dealer is not assigned to you.',
+        });
       }
     }
 

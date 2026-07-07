@@ -49,11 +49,9 @@ export const createExecutive = async (req, res) => {
         if (!distributors.includes(d.distributor.toString())) {
           await session.abortTransaction();
           session.endSession();
-          return res
-            .status(400)
-            .json({
-              message: `Dealer ${d.name} does not belong to the selected distributors.`,
-            });
+          return res.status(400).json({
+            message: `Dealer ${d.name} does not belong to the selected distributors.`,
+          });
         }
       }
     }
@@ -67,11 +65,9 @@ export const createExecutive = async (req, res) => {
         if (!dealers.includes(sd.dealer.toString())) {
           await session.abortTransaction();
           session.endSession();
-          return res
-            .status(400)
-            .json({
-              message: `Sub Dealer ${sd.name} does not belong to the selected dealers.`,
-            });
+          return res.status(400).json({
+            message: `Sub Dealer ${sd.name} does not belong to the selected dealers.`,
+          });
         }
       }
     }
@@ -212,11 +208,9 @@ export const updateExecutive = async (req, res) => {
         if (!distributors.includes(d.distributor.toString())) {
           await session.abortTransaction();
           session.endSession();
-          return res
-            .status(400)
-            .json({
-              message: `Dealer ${d.name} does not belong to the selected distributors.`,
-            });
+          return res.status(400).json({
+            message: `Dealer ${d.name} does not belong to the selected distributors.`,
+          });
         }
       }
     }
@@ -230,11 +224,9 @@ export const updateExecutive = async (req, res) => {
         if (!dealers.includes(sd.dealer.toString())) {
           await session.abortTransaction();
           session.endSession();
-          return res
-            .status(400)
-            .json({
-              message: `Sub Dealer ${sd.name} does not belong to the selected dealers.`,
-            });
+          return res.status(400).json({
+            message: `Sub Dealer ${sd.name} does not belong to the selected dealers.`,
+          });
         }
       }
     }
@@ -325,8 +317,10 @@ export const deleteMultipleExecutives = async (req, res) => {
     }
 
     // Find the executives to get their user IDs
-    const execs = await Executive.find({ _id: { $in: executiveIds } }).session(session);
-    const userIds = execs.map(e => e.user).filter(Boolean);
+    const execs = await Executive.find({ _id: { $in: executiveIds } }).session(
+      session
+    );
+    const userIds = execs.map((e) => e.user).filter(Boolean);
 
     // Delete User records
     if (userIds.length > 0) {

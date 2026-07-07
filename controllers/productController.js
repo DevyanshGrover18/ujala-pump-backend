@@ -175,12 +175,9 @@ export const uploadOfflineProducts = async (req, res) => {
       !Array.isArray(serialNumbers) ||
       serialNumbers.length === 0
     ) {
-      return res
-        .status(400)
-        .json({
-          message:
-            'Factory, model, and an array of serial numbers are required.',
-        });
+      return res.status(400).json({
+        message: 'Factory, model, and an array of serial numbers are required.',
+      });
     }
 
     // Determine current month and year automatically

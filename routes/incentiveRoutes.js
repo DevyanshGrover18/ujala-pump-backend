@@ -5,6 +5,7 @@ import {
   verifyClaim,
   getMyClaims,
   deleteClaim,
+  deleteMultipleClaims,
 } from '../controllers/incentiveController.js';
 import { verifyToken } from '../middleware/roleMiddleware.js';
 
@@ -22,6 +23,7 @@ router.get('/my/claims', getMyClaims);
 
 // Admin routes
 router.get('/', isAdmin, getAllClaims);
+router.delete('/', isAdmin, deleteMultipleClaims);
 router.get('/:id', isAdmin, getClaimById);
 router.post('/:id/verify', isAdmin, verifyClaim);
 router.delete('/:id', isAdmin, deleteClaim);

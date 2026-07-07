@@ -272,3 +272,37 @@ export const deleteClaim = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// DELETE /api/incentives - Admin: Delete multiple claims
+export const deleteMultipleClaims = async (req, res) => {
+  try {
+    const { claimIds } = req.body;
+    if (!claimIds || claimIds.length === 0) {
+      return res.status(400).json({ message: 'No claim IDs provided' });
+    }
+
+    const claims = await IncentiveClaim.find({ _id: { $in: claimIds } });
+    const saleGroupIds = [];
+    const directClaimIds = [];
+
+    for (const claim of claims) {
+      if (claim.saleGroupId) {
+        saleGroupIds.push(claim.saleGroupId);
+      } else {
+        directClaimIds.push(claim._id);
+      }
+    }
+
+    if (saleGroupIds.length > 0) {
+      await IncentiveClaim.deleteMany({ saleGroupId: { $in: saleGroupIds } });
+    }
+    if (directClaimIds.length > 0) {
+      await IncentiveClaim.deleteMany({ _id: { $in: directClaimIds } });
+    }
+
+    res.json({ message: 'Claims deleted successfully' });
+  } catch (err) {
+    console.error('deleteMultipleClaims error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
