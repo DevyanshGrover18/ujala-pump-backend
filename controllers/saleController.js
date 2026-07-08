@@ -230,6 +230,57 @@ export const createSale = async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
+    // Check if product is already sold
+    if (product.sold) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: 'Product already sold' });
+    }
+
+    // Ownership check for Distributor
+    if (req.user && req.user.role === 'distributor') {
+      if (
+        product.distributor &&
+        product.distributor.toString() !== req.user.distributor
+      ) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(403).json({
+          message: 'Unauthorized: Product is not owned by this distributor',
+        });
+      }
+
+      // Also ensure the product has not been assigned to a dealer
+      const dealerProductExists = await DistributorDealerProduct.findOne({
+        product: product._id,
+      }).session(session);
+
+      if (dealerProductExists) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          message:
+            'Product is already assigned to a dealer and cannot be sold directly',
+        });
+      }
+    }
+
+    // Ownership check for Dealer
+    if (req.user && req.user.role === 'dealer') {
+      const dealerProductExists = await DistributorDealerProduct.findOne({
+        product: product._id,
+        dealer: req.user.dealer,
+      }).session(session);
+
+      if (!dealerProductExists) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(403).json({
+          message: "Unauthorized: Product is not in this dealer's inventory",
+        });
+      }
+    }
+
     // Check ki kya is Product ki entry Sales mein pehle se hai?
     // Hum product ID se search karenge kyunki ek product ki ek hi active lifecycle honi chahiye
     const existingSale = await Sale.findOne({ product: productId }).session(
@@ -739,6 +790,15 @@ export const createSubDealerSale = async (req, res) => {
   } = req.body;
 
   try {
+    // Verify logged-in subdealer identity
+    if (req.user && req.user.role === 'subdealer') {
+      if (subDealerId !== req.user.subDealer) {
+        return res
+          .status(403)
+          .json({ message: 'Unauthorized: Sub-dealer ID mismatch' });
+      }
+    }
+
     // Verify the product is assigned to this sub-dealer
     const assignment = await DealerSubDealerProduct.findOne({
       product: productId,

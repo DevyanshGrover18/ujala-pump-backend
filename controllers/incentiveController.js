@@ -254,11 +254,38 @@ export const getMyClaims = async (req, res) => {
   }
 };
 
+// Helper to revert approved claim rewards from seller wallets
+const revertApprovedClaimsWallet = async (claims) => {
+  for (const claim of claims) {
+    if (claim.status === 'Approved') {
+      const decUpdate = {
+        $inc: {
+          walletIncentive: -claim.incentiveAmount,
+          walletPoints: -claim.points,
+        },
+      };
+      if (claim.sellerType === 'Distributor') {
+        await Distributor.findByIdAndUpdate(claim.sellerId, decUpdate);
+      } else if (claim.sellerType === 'Dealer') {
+        await Dealer.findByIdAndUpdate(claim.sellerId, decUpdate);
+      } else if (claim.sellerType === 'SubDealer') {
+        await SubDealer.findByIdAndUpdate(claim.sellerId, decUpdate);
+      }
+    }
+  }
+};
+
 // DELETE /api/incentives/:id - Admin: Delete claim or claim group
 export const deleteClaim = async (req, res) => {
   try {
     const claim = await IncentiveClaim.findById(req.params.id);
     if (!claim) return res.status(404).json({ message: 'Claim not found' });
+
+    const claimsToDelete = claim.saleGroupId
+      ? await IncentiveClaim.find({ saleGroupId: claim.saleGroupId })
+      : [claim];
+
+    await revertApprovedClaimsWallet(claimsToDelete);
 
     if (claim.saleGroupId) {
       await IncentiveClaim.deleteMany({ saleGroupId: claim.saleGroupId });
@@ -292,6 +319,15 @@ export const deleteMultipleClaims = async (req, res) => {
         directClaimIds.push(claim._id);
       }
     }
+
+    const allClaimsToDelete = await IncentiveClaim.find({
+      $or: [
+        { saleGroupId: { $in: saleGroupIds } },
+        { _id: { $in: directClaimIds } },
+      ],
+    });
+
+    await revertApprovedClaimsWallet(allClaimsToDelete);
 
     if (saleGroupIds.length > 0) {
       await IncentiveClaim.deleteMany({ saleGroupId: { $in: saleGroupIds } });

@@ -2,6 +2,7 @@ import DistributorDealerProduct from '../models/DistributorDealerProduct.js';
 import Product from '../models/Product.js';
 import Sale from '../models/Sale.js';
 import UserRole from '../models/UserRole.js';
+import { getNextSequence } from '../utils/counter.js';
 
 export const getProducts = async (req, res) => {
   try {
@@ -212,22 +213,13 @@ export const uploadOfflineProducts = async (req, res) => {
       });
     }
 
-    // Generate new product IDs
-    const latestProduct = await Product.findOne().sort({ productId: -1 });
-    let lastNumber = 0;
-    if (latestProduct && latestProduct.productId) {
-      const match = latestProduct.productId.match(/\d+$/);
-      if (match) {
-        lastNumber = parseInt(match[0], 10);
-      }
-    }
+    // Generate new product IDs using getNextSequence
+    const productsToInsert = [];
+    for (const serial of serialNumbers) {
+      const seqValue = await getNextSequence('product');
+      const newProductId = `PROD${String(seqValue).padStart(5, '0')}`;
 
-    // Construct product documents
-    const productsToInsert = serialNumbers.map((serial) => {
-      lastNumber++;
-      const newProductId = `PROD${String(lastNumber).padStart(5, '0')}`;
-
-      return {
+      productsToInsert.push({
         productId: newProductId,
         productName: model.name,
         description: `Offline manually uploaded product`,
@@ -244,8 +236,8 @@ export const uploadOfflineProducts = async (req, res) => {
         price: model.specifications?.mrpPrice || 0,
         minStockLevel: 10,
         status: 'Active',
-      };
-    });
+      });
+    }
 
     // Bulk insert
     const insertedProducts = await Product.insertMany(productsToInsert);

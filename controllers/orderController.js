@@ -483,6 +483,8 @@ export const updateOrder = async (req, res) => {
   try {
     const { id: _id } = req.params;
     const orderData = req.body;
+    const newSerialNumbers =
+      orderData.serialNumbers || orderData.newSerialNumbers;
 
     if (!mongoose.Types.ObjectId.isValid(_id)) {
       return res
@@ -497,6 +499,18 @@ export const updateOrder = async (req, res) => {
         .json({ message: `Order not found with id: ${_id}` });
     }
 
+    // Check if any items in the order have been dispatched
+    const hasDispatchedItem = await OrderItem.findOne({
+      orderId: existingOrder.orderId,
+      status: 'Dispatched',
+    });
+    if (existingOrder.status === 'Dispatched' || hasDispatchedItem) {
+      return res.status(400).json({
+        message:
+          'Action not allowed: One or more items in this order have already been dispatched.',
+      });
+    }
+
     // Access Control Check
     if (
       !(await checkFactoryAccess(req.user, existingOrder.factory.toString()))
@@ -505,6 +519,14 @@ export const updateOrder = async (req, res) => {
         .status(403)
         .json({ message: 'Not authorized to update orders for this factory' });
     }
+
+    const quantityChanged =
+      orderData.quantity !== undefined &&
+      Number(orderData.quantity) !== existingOrder.quantity;
+
+    const orderTypeChanged =
+      orderData.orderType !== undefined &&
+      orderData.orderType !== existingOrder.orderType;
 
     const isManualOrder =
       existingOrder.isManual === true ||
@@ -786,6 +808,18 @@ export const deleteOrder = async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
+    // Check if any items in the order have been dispatched
+    const hasDispatchedItem = await OrderItem.findOne({
+      orderId: order.orderId,
+      status: 'Dispatched',
+    });
+    if (order.status === 'Dispatched' || hasDispatchedItem) {
+      return res.status(400).json({
+        message:
+          'Action not allowed: One or more items in this order have already been dispatched.',
+      });
+    }
+
     // Access Control Check
     if (!(await checkFactoryAccess(req.user, order.factory.toString()))) {
       return res
@@ -839,6 +873,24 @@ export const deleteMultipleOrders = async (req, res) => {
       return res
         .status(404)
         .json({ message: 'No orders found with the provided IDs.' });
+    }
+
+    const orderIds = orders.map((order) => order.orderId);
+
+    // Check if any of these orders or their items are dispatched
+    const hasDispatchedOrder = orders.some(
+      (order) => order.status === 'Dispatched'
+    );
+    const hasDispatchedItem = await OrderItem.findOne({
+      orderId: { $in: orderIds },
+      status: 'Dispatched',
+    });
+
+    if (hasDispatchedOrder || hasDispatchedItem) {
+      return res.status(400).json({
+        message:
+          'Action not allowed: One or more items in the selected orders have already been dispatched.',
+      });
     }
 
     await session.withTransaction(async () => {
@@ -953,6 +1005,18 @@ export const updateOrderStatus = async (req, res) => {
     const existingOrder = await Order.findById(id);
     if (!existingOrder) {
       return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Check if any items in the order have been dispatched
+    const hasDispatchedItem = await OrderItem.findOne({
+      orderId: existingOrder.orderId,
+      status: 'Dispatched',
+    });
+    if (existingOrder.status === 'Dispatched' || hasDispatchedItem) {
+      return res.status(400).json({
+        message:
+          'Action not allowed: One or more items in this order have already been dispatched.',
+      });
     }
 
     // Access Control Check

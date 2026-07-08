@@ -7,6 +7,7 @@ import Model from '../models/Model.js';
 import bcrypt from 'bcryptjs';
 import { isAfterTwoDays } from '../utils/helper.js';
 import { checkFactoryAccess } from './factoryOrderController.js';
+import { getNextSequence } from '../utils/counter.js';
 
 export const getFactories = async (req, res) => {
   try {
@@ -452,12 +453,8 @@ export const bulkUpdateOrderItemStatus = async (req, res) => {
         item.dispatchedAt = now;
 
         if (!item.isTransferredToProduct) {
-          const latestProduct = await Product.findOne().sort({ createdAt: -1 });
-          let lastNumber = latestProduct?.productId
-            ? parseInt(latestProduct.productId.replace('PROD', ''))
-            : 0;
-
-          const newProductId = `PROD${String(lastNumber + 1).padStart(5, '0')}`;
+          const seqValue = await getNextSequence('product');
+          const newProductId = `PROD${String(seqValue).padStart(5, '0')}`;
           const model = await Model.findById(item.model);
 
           await Product.create({
