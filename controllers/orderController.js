@@ -47,6 +47,8 @@ const generateOrderItems = (config) => {
     factoryId,
     orderType,
     status = 'Pending',
+    dispatchedAt,
+    completedAt,
   } = config;
 
   return Array.from({ length: totalUnits }, (_, i) => {
@@ -55,7 +57,7 @@ const generateOrderItems = (config) => {
     const boxNumber = Math.ceil((i + 1) / unitsPerBox);
 
     // Clean item data - don't include any date fields
-    return {
+    const item = {
       orderId,
       serialNumber: itemSerialNumber,
       month,
@@ -68,6 +70,15 @@ const generateOrderItems = (config) => {
       unitsPerBox,
       boxNumber,
     };
+
+    if (dispatchedAt) {
+      item.dispatchedAt = dispatchedAt;
+    }
+    if (completedAt) {
+      item.completedAt = completedAt;
+    }
+
+    return item;
   });
 };
 
@@ -505,10 +516,12 @@ export const updateOrder = async (req, res) => {
       status: 'Dispatched',
     });
     if (existingOrder.status === 'Dispatched' || hasDispatchedItem) {
-      return res.status(400).json({
-        message:
-          'Action not allowed: One or more items in this order have already been dispatched.',
-      });
+      if (req.user.role !== 'admin') {
+        return res.status(400).json({
+          message:
+            'Action not allowed: One or more items in this order have already been dispatched.',
+        });
+      }
     }
 
     // Access Control Check
@@ -653,11 +666,20 @@ export const updateOrder = async (req, res) => {
               category: orderData.category || existingOrder.category,
               model: orderData.model || existingOrder.model,
               factory: orderData.factory || existingOrder.factory,
-              status: 'Pending',
+              status: existingOrder.status || 'Pending',
               orderType,
               unitsPerBox,
               boxNumber,
               isManual: true,
+              dispatchedAt:
+                existingOrder.status === 'Dispatched'
+                  ? existingOrder.dispatchedAt || new Date()
+                  : undefined,
+              completedAt:
+                existingOrder.status === 'Completed' ||
+                existingOrder.status === 'Dispatched'
+                  ? existingOrder.completedAt || new Date()
+                  : undefined,
             };
           });
 
@@ -738,6 +760,16 @@ export const updateOrder = async (req, res) => {
             modelId,
             factoryId,
             orderType,
+            status: existingOrder.status || 'Pending',
+            dispatchedAt:
+              existingOrder.status === 'Dispatched'
+                ? existingOrder.dispatchedAt || new Date()
+                : undefined,
+            completedAt:
+              existingOrder.status === 'Completed' ||
+              existingOrder.status === 'Dispatched'
+                ? existingOrder.completedAt || new Date()
+                : undefined,
           });
         }
 
@@ -814,10 +846,12 @@ export const deleteOrder = async (req, res) => {
       status: 'Dispatched',
     });
     if (order.status === 'Dispatched' || hasDispatchedItem) {
-      return res.status(400).json({
-        message:
-          'Action not allowed: One or more items in this order have already been dispatched.',
-      });
+      if (req.user.role !== 'admin') {
+        return res.status(400).json({
+          message:
+            'Action not allowed: One or more items in this order have already been dispatched.',
+        });
+      }
     }
 
     // Access Control Check
@@ -887,10 +921,12 @@ export const deleteMultipleOrders = async (req, res) => {
     });
 
     if (hasDispatchedOrder || hasDispatchedItem) {
-      return res.status(400).json({
-        message:
-          'Action not allowed: One or more items in the selected orders have already been dispatched.',
-      });
+      if (req.user.role !== 'admin') {
+        return res.status(400).json({
+          message:
+            'Action not allowed: One or more items in the selected orders have already been dispatched.',
+        });
+      }
     }
 
     await session.withTransaction(async () => {
@@ -1013,10 +1049,12 @@ export const updateOrderStatus = async (req, res) => {
       status: 'Dispatched',
     });
     if (existingOrder.status === 'Dispatched' || hasDispatchedItem) {
-      return res.status(400).json({
-        message:
-          'Action not allowed: One or more items in this order have already been dispatched.',
-      });
+      if (req.user.role !== 'admin') {
+        return res.status(400).json({
+          message:
+            'Action not allowed: One or more items in this order have already been dispatched.',
+        });
+      }
     }
 
     // Access Control Check
@@ -1029,9 +1067,18 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     const updateData = { status };
-    // Set completion timestamp if status is 'Completed'
+    // Set completion / dispatch timestamps or clear them if needed
     if (status === 'Completed') {
       updateData.completedAt = new Date();
+    } else if (status === 'Dispatched') {
+      updateData.dispatchedAt = new Date();
+    } else if (
+      status === 'Pending' ||
+      status === 'In Progress' ||
+      status === 'Cancelled'
+    ) {
+      updateData.dispatchedAt = null;
+      updateData.completedAt = null;
     }
 
     const updatedOrder = await Order.findByIdAndUpdate(id, updateData, {
