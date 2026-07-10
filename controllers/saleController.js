@@ -336,6 +336,7 @@ export const createSale = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
+    /*
     // --- Auto-create IncentiveClaim when sold to a customer ---
     await createIncentiveClaimHelper(
       sale,
@@ -347,6 +348,7 @@ export const createSale = async (req, res) => {
       distributorId
     );
     // --- End IncentiveClaim ---
+    */
 
     return res.status(201).json({
       message: existingSale
@@ -843,6 +845,7 @@ export const createSubDealerSale = async (req, res) => {
     await sale.save();
     await product.save();
 
+    /*
     // --- Auto-create IncentiveClaim when sold to a customer ---
     await createIncentiveClaimHelper(
       sale,
@@ -854,6 +857,7 @@ export const createSubDealerSale = async (req, res) => {
       null
     );
     // --- End IncentiveClaim ---
+    */
 
     res.status(201).json(sale);
   } catch (error) {
@@ -1435,6 +1439,7 @@ export const adminCreateSale = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
+    /*
     // --- Auto-create IncentiveClaim when sold to a customer ---
     await createIncentiveClaimHelper(
       sale,
@@ -1446,6 +1451,7 @@ export const adminCreateSale = async (req, res) => {
       distributorIdDb
     );
     // --- End IncentiveClaim ---
+    */
 
     return res.status(201).json({
       message: 'Product sold by Admin successfully',

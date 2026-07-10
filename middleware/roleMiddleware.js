@@ -85,7 +85,7 @@ const ROLE_PERMISSIONS = {
   },
 };
 
-const verifyToken = (req, res, next) => {
+const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith('Bearer ')
     ? authHeader.split(' ')[1]
@@ -118,13 +118,39 @@ const verifyToken = (req, res, next) => {
         .json(createSecureErrorResponse('Invalid role in token.', 401));
     }
 
+    // Single device session enforcement: Check sessionVersion in database
+    let dbUser;
+    if (sanitizedRole === 'member') {
+      dbUser = await UserRole.findById(decoded.id).select('sessionVersion isActive');
+    } else {
+      dbUser = await User.findById(decoded.id).select('sessionVersion isActive');
+    }
+
+    if (!dbUser) {
+      return res
+        .status(401)
+        .json(createSecureErrorResponse('User not found.', 401));
+    }
+
+    if (!dbUser.isActive) {
+      return res
+        .status(401)
+        .json(createSecureErrorResponse('User account is inactive.', 401));
+    }
+
+    if (dbUser.sessionVersion !== decoded.sessionVersion) {
+      return res
+        .status(401)
+        .json(createSecureErrorResponse('Session expired or logged in from another device.', 401));
+    }
+
     req.user = {
       ...decoded,
       role: sanitizedRole,
     };
     next();
   } catch (error) {
-    console.error('Token verification failed:', error.name);
+    console.error('Token verification failed:', error.name, error.message);
     res.status(401).json(createSecureErrorResponse('Invalid token.', 401));
   }
 };

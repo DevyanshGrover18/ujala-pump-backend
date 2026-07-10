@@ -11,12 +11,12 @@ import {
   createSecureErrorResponse,
 } from '../utils/security.js';
 
-const generateToken = (id, role, distributor, factory, dealer, subDealer) => {
+const generateToken = (id, role, distributor, factory, dealer, subDealer, sessionVersion) => {
   const jwtSecret = validateJWTSecret();
   const expiresIn = process.env.JWT_EXPIRES_IN || '6h';
 
   return jwt.sign(
-    { id, role, distributor, factory, dealer, subDealer },
+    { id, role, distributor, factory, dealer, subDealer, sessionVersion },
     jwtSecret,
     { expiresIn }
   );
@@ -116,19 +116,23 @@ export const login = async (req, res) => {
     // Reset login attempts on successful login
     await user.resetLoginAttempts();
 
+    const sessionVersion = Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+
     // Generate response based on user type
     if (isUserRole) {
+      await UserRole.findByIdAndUpdate(user._id, { sessionVersion });
       const userData = {
         id: user._id,
         username: user.username,
         role: 'member',
         accessControl: user.accessControl,
         privileges: user.accessControl,
-        token: generateToken(user._id, 'member'),
+        token: generateToken(user._id, 'member', null, null, null, null, sessionVersion),
       };
       return res.json({ user: userData });
     }
 
+    await User.findByIdAndUpdate(user._id, { sessionVersion });
     const userData = {
       id: user._id,
       username: user.username,
@@ -144,7 +148,8 @@ export const login = async (req, res) => {
         user.distributor?._id,
         user.factory?._id,
         user.dealer?._id,
-        user.subDealer?._id
+        user.subDealer?._id,
+        sessionVersion
       ),
     };
 

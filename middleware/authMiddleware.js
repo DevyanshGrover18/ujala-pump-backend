@@ -4,6 +4,8 @@ import {
   validateJWTSecret,
   createSecureErrorResponse,
 } from '../utils/security.js';
+import User from '../models/User.js';
+import UserRole from '../models/UserRole.js';
 
 const protect = asyncHandler(async (req, res, next) => {
   let token;
@@ -29,13 +31,36 @@ const protect = asyncHandler(async (req, res, next) => {
         throw new Error('Invalid token structure');
       }
 
+      // Check session validity against database
+      let dbUser;
+      if (decoded.role === 'member') {
+        dbUser = await UserRole.findById(decoded.id).select('sessionVersion isActive');
+      } else {
+        dbUser = await User.findById(decoded.id).select('sessionVersion isActive');
+      }
+
+      if (!dbUser) {
+        res.status(401);
+        throw new Error('User not found');
+      }
+
+      if (!dbUser.isActive) {
+        res.status(401);
+        throw new Error('User account is inactive');
+      }
+
+      if (dbUser.sessionVersion !== decoded.sessionVersion) {
+        res.status(401);
+        throw new Error('Session expired or logged in from another device');
+      }
+
       req.user = decoded;
       next();
     } catch (error) {
-      console.error('JWT verification failed:', error.name);
+      console.error('JWT verification failed:', error.name, error.message);
       res
         .status(401)
-        .json(createSecureErrorResponse('Not authorized, token failed', 401));
+        .json(createSecureErrorResponse(error.message || 'Not authorized, token failed', 401));
       return;
     }
   } else {

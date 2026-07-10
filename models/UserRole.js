@@ -58,6 +58,10 @@ const userRoleSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    sessionVersion: {
+      type: String,
+      default: null,
+    },
     accessControl: {
       type: accessControlSchema,
       required: [true, 'Access control is required'],

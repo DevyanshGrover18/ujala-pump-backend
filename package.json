@@ -8,7 +8,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "prettier": "prettier --write ."
+    "prettier": "prettier --write .",
+    "migrate:preview": "node scripts/migrateSerialNumbers.js --preview",
+    "migrate": "node scripts/migrateSerialNumbers.js"
   },
   "keywords": [],
   "author": "",
