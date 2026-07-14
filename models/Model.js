@@ -138,6 +138,11 @@ const modelSchema = new mongoose.Schema(
       default: 0,
       min: [0, 'Points cannot be negative'],
     },
+    plumberIncentive: {
+      type: Number,
+      default: 0,
+      min: [0, 'Plumber incentive amount cannot be negative'],
+    },
     status: {
       type: String,
       enum: {

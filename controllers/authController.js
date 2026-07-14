@@ -11,12 +11,12 @@ import {
   createSecureErrorResponse,
 } from '../utils/security.js';
 
-const generateToken = (id, role, distributor, factory, dealer, subDealer, sessionVersion) => {
+const generateToken = (id, role, distributor, factory, dealer, subDealer, plumber, sessionVersion) => {
   const jwtSecret = validateJWTSecret();
   const expiresIn = process.env.JWT_EXPIRES_IN || '6h';
 
   return jwt.sign(
-    { id, role, distributor, factory, dealer, subDealer, sessionVersion },
+    { id, role, distributor, factory, dealer, subDealer, plumber, sessionVersion },
     jwtSecret,
     { expiresIn }
   );
@@ -49,6 +49,10 @@ const findUserByRole = async (username, role) => {
     case 'executive':
       return await User.findOne(query)
         .populate('executive')
+        .select('+password');
+    case 'plumber':
+      return await User.findOne(query)
+        .populate('plumber')
         .select('+password');
     default:
       return await User.findOne(query).select('+password');
@@ -127,7 +131,7 @@ export const login = async (req, res) => {
         role: 'member',
         accessControl: user.accessControl,
         privileges: user.accessControl,
-        token: generateToken(user._id, 'member', null, null, null, null, sessionVersion),
+        token: generateToken(user._id, 'member', null, null, null, null, null, sessionVersion),
       };
       return res.json({ user: userData });
     }
@@ -142,6 +146,7 @@ export const login = async (req, res) => {
       dealer: user.dealer,
       subDealer: user.subDealer,
       executive: user.executive,
+      plumber: user.plumber,
       token: generateToken(
         user._id,
         user.role,
@@ -149,6 +154,7 @@ export const login = async (req, res) => {
         user.factory?._id,
         user.dealer?._id,
         user.subDealer?._id,
+        user.plumber?._id,
         sessionVersion
       ),
     };

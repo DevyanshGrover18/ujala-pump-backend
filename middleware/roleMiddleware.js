@@ -19,6 +19,7 @@ const ROLE_PERMISSIONS = {
     dealers: { add: true, modify: true, delete: true, full: true },
     sales: { add: true, modify: true, delete: true, full: true },
     subDealers: { add: true, modify: true, delete: true, full: true },
+    plumbers: { add: true, modify: true, delete: true, full: true },
   },
   factory: {
     orders: { add: true, modify: true, delete: true, full: true },
@@ -296,6 +297,7 @@ const checkSectionAccess = (section) => {
           'dealers',
           'sales',
           'subDealers',
+          'plumbers',
         ],
         factory: ['orders', 'products', 'sales'],
         distributor: ['dealers', 'subDealers', 'products', 'sales'],

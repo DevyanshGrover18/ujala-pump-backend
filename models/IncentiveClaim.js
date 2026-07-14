@@ -5,12 +5,17 @@ const incentiveClaimSchema = new mongoose.Schema(
     sale: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Sale',
-      required: true,
+      required: false,
     },
     sellerType: {
       type: String,
-      enum: ['Distributor', 'Dealer', 'SubDealer'],
+      enum: ['Distributor', 'Dealer', 'SubDealer', 'Plumber'],
       required: true,
+    },
+    installation: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Installation',
+      required: false,
     },
     sellerId: {
       type: mongoose.Schema.Types.ObjectId,

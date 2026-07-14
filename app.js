@@ -34,6 +34,9 @@ import customerChangeRequestRoutes from './routes/customerChangeRequestRoutes.js
 import warrantyStickerRoutes from './routes/warrantyStickerRoutes.js';
 import executiveRoutes from './routes/executiveRoutes.js';
 import incentiveRoutes from './routes/incentiveRoutes.js';
+import plumberRoutes from './routes/plumberRoutes.js';
+import installationRoutes from './routes/installationRoutes.js';
+import complaintRoutes from './routes/complaintRoutes.js';
 
 dotenv.config();
 
@@ -120,6 +123,9 @@ app.use('/api/executives', executiveRoutes);
 app.use('/api/incentives', incentiveRoutes);
 app.use('/api/qr', qrRoutes);
 app.use('/api/pdf', pdfRoutes);
+app.use('/api/plumbers', plumberRoutes);
+app.use('/api/installations', installationRoutes);
+app.use('/api/complaints', complaintRoutes);
 
 app.get('/', (req, res) => {
   res.json({

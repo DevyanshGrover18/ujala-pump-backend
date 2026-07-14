@@ -205,7 +205,7 @@ export const getDealerSales = async (req, res) => {
 };
 
 export const createSale = async (req, res) => {
-  const {
+  let {
     productId,
     dealerId,
     distributorId,
@@ -215,8 +215,30 @@ export const createSale = async (req, res) => {
     plumberName,
     alternateMobileNumber,
     plumberMobileNumber,
-    subDealerId, // Agar sub-dealer ko sell ho raha hai
+    subDealerId,
   } = req.body;
+
+  // Resolve seller IDs from logged in user if not explicitly passed
+  if (req.user) {
+    if (req.user.role === 'distributor') {
+      distributorId = distributorId || req.user.distributor;
+    } else if (req.user.role === 'dealer') {
+      dealerId = dealerId || req.user.dealer;
+      // Find this dealer's distributor to link the sale
+      const dealerDoc = await Dealer.findById(req.user.dealer).lean();
+      if (dealerDoc) {
+        distributorId = distributorId || dealerDoc.distributor;
+      }
+    } else if (req.user.role === 'subdealer') {
+      subDealerId = subDealerId || req.user.subDealer;
+      // Find this subdealer's dealer and distributor
+      const subDealerDoc = await SubDealer.findById(req.user.subDealer).lean();
+      if (subDealerDoc) {
+        dealerId = dealerId || subDealerDoc.dealer;
+        distributorId = distributorId || subDealerDoc.distributor;
+      }
+    }
+  }
 
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -336,7 +358,6 @@ export const createSale = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
-    /*
     // --- Auto-create IncentiveClaim when sold to a customer ---
     await createIncentiveClaimHelper(
       sale,
@@ -348,7 +369,6 @@ export const createSale = async (req, res) => {
       distributorId
     );
     // --- End IncentiveClaim ---
-    */
 
     return res.status(201).json({
       message: existingSale

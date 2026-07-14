@@ -18,6 +18,7 @@ const accessControlSchema = new mongoose.Schema({
   dealers: permissionSchema,
   sales: permissionSchema,
   subDealers: permissionSchema,
+  plumbers: permissionSchema,
 });
 
 const userRoleSchema = new mongoose.Schema(
@@ -193,6 +194,7 @@ userRoleSchema.statics.createAdminUser = async function (adminData) {
     dealers: fullAccess,
     sales: fullAccess,
     subDealers: fullAccess,
+    plumbers: fullAccess,
   };
 
   const admin = new this({

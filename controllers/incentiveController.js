@@ -2,6 +2,8 @@ import IncentiveClaim from '../models/IncentiveClaim.js';
 import Distributor from '../models/Distributor.js';
 import Dealer from '../models/Dealer.js';
 import SubDealer from '../models/SubDealer.js';
+import Plumber from '../models/Plumber.js';
+import Sale from '../models/Sale.js';
 
 const getSellerInfo = async (sellerType, sellerId) => {
   if (sellerType === 'Distributor')
@@ -20,6 +22,12 @@ const getSellerInfo = async (sellerType, sellerId) => {
     return SubDealer.findById(sellerId)
       .select(
         'name subDealerId contactPerson contactPhone email walletIncentive walletPoints eligibleForIncentive eligibleForPoints'
+      )
+      .lean();
+  if (sellerType === 'Plumber')
+    return Plumber.findById(sellerId)
+      .select(
+        'name plumberId phone username walletIncentive walletPoints eligibleForIncentive'
       )
       .lean();
   return null;
@@ -96,9 +104,21 @@ export const getClaimById = async (req, res) => {
       .populate('sale')
       .populate('product', 'serialNumber')
       .populate('model', 'name code incentive points')
+      .populate({
+        path: 'installation',
+        populate: {
+          path: 'plumber',
+          select: 'name plumberId phone username',
+        }
+      })
       .lean();
 
     if (!claim) return res.status(404).json({ message: 'Claim not found' });
+
+    // Fallback: If sale is empty (e.g. Plumber claim), query the Sale model for product's sale details
+    if (!claim.sale && claim.product) {
+      claim.sale = await Sale.findOne({ product: claim.product._id || claim.product }).lean();
+    }
 
     // If grouped, fetch all claims with same saleGroupId
     let groupClaims = [claim];
@@ -109,7 +129,21 @@ export const getClaimById = async (req, res) => {
         .populate('sale')
         .populate('product', 'serialNumber')
         .populate('model', 'name code')
+        .populate({
+          path: 'installation',
+          populate: {
+            path: 'plumber',
+            select: 'name plumberId phone username',
+          }
+        })
         .lean();
+
+      // Populate fallback sale details for any items in group claims
+      for (const gc of groupClaims) {
+        if (!gc.sale && gc.product) {
+          gc.sale = await Sale.findOne({ product: gc.product._id || gc.product }).lean();
+        }
+      }
     }
 
     const seller = await getSellerInfo(claim.sellerType, claim.sellerId);
@@ -159,6 +193,8 @@ export const verifyClaim = async (req, res) => {
           await Dealer.findByIdAndUpdate(c.sellerId, incUpdate);
         else if (c.sellerType === 'SubDealer')
           await SubDealer.findByIdAndUpdate(c.sellerId, incUpdate);
+        else if (c.sellerType === 'Plumber')
+          await Plumber.findByIdAndUpdate(c.sellerId, incUpdate);
       } else if (action === 'reject') {
         c.status = 'Rejected';
         c.rejectionReason = rejectionReason.trim();
@@ -188,6 +224,9 @@ export const getMyClaims = async (req, res) => {
     } else if (req.user.subDealer) {
       sellerType = 'SubDealer';
       sellerId = req.user.subDealer;
+    } else if (req.user.plumber) {
+      sellerType = 'Plumber';
+      sellerId = req.user.plumber;
     } else return res.status(403).json({ message: 'Unauthorized' });
 
     const claims = await IncentiveClaim.find({ sellerId })
@@ -270,6 +309,8 @@ const revertApprovedClaimsWallet = async (claims) => {
         await Dealer.findByIdAndUpdate(claim.sellerId, decUpdate);
       } else if (claim.sellerType === 'SubDealer') {
         await SubDealer.findByIdAndUpdate(claim.sellerId, decUpdate);
+      } else if (claim.sellerType === 'Plumber') {
+        await Plumber.findByIdAndUpdate(claim.sellerId, decUpdate);
       }
     }
   }

@@ -29,6 +29,7 @@ const userSchema = new mongoose.Schema(
           'dealer',
           'subdealer',
           'executive',
+          'plumber',
         ],
         message: 'Invalid role specified',
       },
@@ -71,6 +72,13 @@ const userSchema = new mongoose.Schema(
       ref: 'Executive',
       required: function () {
         return this.role === 'executive';
+      },
+    },
+    plumber: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Plumber',
+      required: function () {
+        return this.role === 'plumber';
       },
     },
     loginAttempts: {
