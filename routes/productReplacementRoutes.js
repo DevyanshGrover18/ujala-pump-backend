@@ -4,8 +4,10 @@ import {
   createReplacementRequest,
   getReplacementRequests,
   resolveReplacementRequest,
+  getAvailableStockForReplacement,
+  getMyDefectiveStock,
 } from '../controllers/productReplacementController.js';
-import { verifyToken, checkSectionAccess, checkPermission } from '../middleware/roleMiddleware.js';
+import { verifyToken } from '../middleware/roleMiddleware.js';
 
 const router = express.Router();
 
@@ -18,7 +20,13 @@ router.post('/', verifyToken, createReplacementRequest);
 // List replacement requests (All for Admin, filter by user for Distributor, Dealer, SubDealer)
 router.get('/', verifyToken, getReplacementRequests);
 
-// Resolve replacement request (Admin only)
-router.patch('/:id/resolve', verifyToken, checkPermission('products', 'modify'), resolveReplacementRequest);
+// Get my defective stock for raising replacement requests
+router.get('/my-defective-stock', verifyToken, getMyDefectiveStock);
+
+// Get available stock of same model for replacement
+router.get('/:id/available-stock', verifyToken, getAvailableStockForReplacement);
+
+// Resolve replacement request
+router.patch('/:id/resolve', verifyToken, resolveReplacementRequest);
 
 export default router;

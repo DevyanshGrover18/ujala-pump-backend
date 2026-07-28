@@ -54,15 +54,30 @@ const productReplacementSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: 'assignedToModel',
+      default: null,
+    },
+    assignedToModel: {
+      type: String,
+      enum: ['UserRole', 'Distributor', 'Dealer'],
+      default: 'UserRole',
+    },
     approvedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'UserRole',
+      refPath: 'resolvedByModel',
       default: null,
     },
     assignedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'UserRole',
+      refPath: 'resolvedByModel',
       default: null,
+    },
+    resolvedByModel: {
+      type: String,
+      enum: ['UserRole', 'Distributor', 'Dealer'],
+      default: 'UserRole',
     },
     resolvedAt: {
       type: Date,
@@ -72,7 +87,8 @@ const productReplacementSchema = new mongoose.Schema(
       {
         status: { type: String, required: true },
         changedAt: { type: Date, default: Date.now },
-        changedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'UserRole' },
+        changedBy: { type: mongoose.Schema.Types.ObjectId, refPath: 'statusHistory.changedByModel' },
+        changedByModel: { type: String, enum: ['UserRole', 'Distributor', 'Dealer'], default: 'UserRole' },
         remarks: { type: String, default: '' },
       },
     ],

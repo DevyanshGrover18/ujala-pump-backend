@@ -127,20 +127,30 @@ export const getDealerProductsInventroy = async (req, res) => {
       .populate('dealer')
       .populate('subDealer');
 
-    if (!sales.length) return res.json([]);
-
     // Filter out products that are sold, assigned to sub-dealer, or customer exists
     const filteredSales = sales.filter(
       (sale) => !sale.subDealer && !sale.customerName
     );
 
-    if (!filteredSales.length) return res.json([]);
-
     const productIds = filteredSales.map((sale) => sale.product);
+
+    // Also fetch all DistributorDealerProduct assignments for this dealer (including returned defective items)
+    const ddps = await DistributorDealerProduct.find({ dealer: dealerId });
+    const ddpProductIds = ddps.map((d) => d.product);
+
+    // Combine unique product IDs
+    const combinedProductIds = [
+      ...new Set([
+        ...productIds.map((id) => id.toString()),
+        ...ddpProductIds.map((id) => id.toString()),
+      ]),
+    ];
+
+    if (!combinedProductIds.length) return res.json([]);
 
     // Fetch product details
     const products = await Product.find({
-      _id: { $in: productIds },
+      _id: { $in: combinedProductIds },
       status: { $ne: 'Inactive' }, // exclude inactive products
     })
       .populate('model')
@@ -162,7 +172,7 @@ export const getDealerProductsInventroy = async (req, res) => {
 
       return {
         product: { ...obj },
-        dealer: sale?.dealer || null,
+        dealer: sale?.dealer || dealerId,
         subDealer: sale?.subDealer || null,
         sold: false, // explicitly unsold
         soldAt: null,

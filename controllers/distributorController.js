@@ -313,7 +313,10 @@ export const getDistributorProducts = async (req, res) => {
       {
         $match: {
           distributor: new mongoose.Types.ObjectId(id),
-          sold: { $ne: true },
+          $or: [
+            { sold: { $ne: true } },
+            { status: 'Replaced' }
+          ],
         },
       },
       {
