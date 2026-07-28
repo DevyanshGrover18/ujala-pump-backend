@@ -71,7 +71,7 @@ const productSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Active', 'Inactive'],
+      enum: ['Active', 'Inactive', 'Replaced'],
       default: 'Active',
     },
     sold: {
@@ -89,6 +89,27 @@ const productSchema = new mongoose.Schema(
       durationType: { type: String, enum: ['Months', 'Years'] },
       state: { type: String },
       city: { type: String },
+    },
+    warrantyStartDate: {
+      type: Date,
+    },
+    incentiveEligible: {
+      type: Boolean,
+      default: true,
+    },
+    isReplacement: {
+      type: Boolean,
+      default: false,
+    },
+    replacedFrom: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Product',
+      default: null,
+    },
+    replacedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Product',
+      default: null,
     },
   },
   { timestamps: true }

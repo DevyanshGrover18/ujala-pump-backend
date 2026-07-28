@@ -116,24 +116,26 @@ export const installMotor = async (req, res) => {
 
     const savedInstallation = await installation.save();
 
-    // Create Incentive Claim for the Plumber
-    const plumberIncentive = product.model?.plumberIncentive || 0;
+    // Create Incentive Claim for the Plumber if eligible
+    if (product.incentiveEligible !== false) {
+      const plumberIncentive = product.model?.plumberIncentive || 0;
 
-    const claim = new IncentiveClaim({
-      sellerType: 'Plumber',
-      sellerId: plumber._id,
-      sellerName: plumber.name,
-      product: product._id,
-      serialNumber: product.serialNumber,
-      model: product.model?._id,
-      modelName: product.model?.name,
-      incentiveAmount: plumberIncentive,
-      points: 0,
-      installation: savedInstallation._id,
-      status: 'Approval Pending',
-    });
+      const claim = new IncentiveClaim({
+        sellerType: 'Plumber',
+        sellerId: plumber._id,
+        sellerName: plumber.name,
+        product: product._id,
+        serialNumber: product.serialNumber,
+        model: product.model?._id,
+        modelName: product.model?.name,
+        incentiveAmount: plumberIncentive,
+        points: 0,
+        installation: savedInstallation._id,
+        status: 'Approval Pending',
+      });
 
-    await claim.save();
+      await claim.save();
+    }
 
     // Return populated installation data
     const responseData = await Installation.findById(savedInstallation._id)

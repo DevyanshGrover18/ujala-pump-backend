@@ -37,6 +37,7 @@ import incentiveRoutes from './routes/incentiveRoutes.js';
 import plumberRoutes from './routes/plumberRoutes.js';
 import installationRoutes from './routes/installationRoutes.js';
 import complaintRoutes from './routes/complaintRoutes.js';
+import productReplacementRoutes from './routes/productReplacementRoutes.js';
 
 dotenv.config();
 
@@ -126,6 +127,7 @@ app.use('/api/pdf', pdfRoutes);
 app.use('/api/plumbers', plumberRoutes);
 app.use('/api/installations', installationRoutes);
 app.use('/api/complaints', complaintRoutes);
+app.use('/api/replacements', productReplacementRoutes);
 
 app.get('/', (req, res) => {
   res.json({

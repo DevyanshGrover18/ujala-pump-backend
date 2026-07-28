@@ -41,6 +41,12 @@ const createIncentiveClaimHelper = async (
       const freshProduct = await Product.findById(productId)
         .populate('model')
         .lean();
+      
+      if (freshProduct && freshProduct.incentiveEligible === false) {
+        console.log(`Product ${freshProduct.serialNumber} is ineligible for incentives. Skipping claim creation.`);
+        return;
+      }
+
       const modelDoc = freshProduct?.model || null;
 
       const eligibleIncentive =
