@@ -106,6 +106,16 @@ const dealerSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    savedPayoutDetails: {
+      payoutMethod: { type: String, enum: ['Bank', 'UPI'] },
+      bankDetails: {
+        accountNumber: { type: String, default: '' },
+        ifscCode: { type: String, default: '' },
+        bankName: { type: String, default: '' },
+        accountHolderName: { type: String, default: '' },
+      },
+      upiId: { type: String, default: '' },
+    },
   },
   {
     timestamps: true,

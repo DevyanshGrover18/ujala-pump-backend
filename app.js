@@ -38,6 +38,8 @@ import plumberRoutes from './routes/plumberRoutes.js';
 import installationRoutes from './routes/installationRoutes.js';
 import complaintRoutes from './routes/complaintRoutes.js';
 import productReplacementRoutes from './routes/productReplacementRoutes.js';
+import payoutRoutes from './routes/payoutRoutes.js';
+import accountsRoutes from './routes/accountsRoutes.js';
 
 dotenv.config();
 
@@ -128,6 +130,8 @@ app.use('/api/plumbers', plumberRoutes);
 app.use('/api/installations', installationRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/replacements', productReplacementRoutes);
+app.use('/api/payouts', payoutRoutes);
+app.use('/api/accounts', accountsRoutes);
 
 app.get('/', (req, res) => {
   res.json({

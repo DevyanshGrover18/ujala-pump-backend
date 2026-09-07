@@ -1,9 +1,9 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
-const subDealerSchema = new mongoose.Schema(
+const accountsMemberSchema = new mongoose.Schema(
   {
-    subDealerId: {
+    accountsId: {
       type: String,
       required: true,
       unique: true,
@@ -44,15 +44,20 @@ const subDealerSchema = new mongoose.Schema(
       trim: true,
       match: [/^\d{6}$/, 'Pincode must be 6 digits'],
     },
+    gstNumber: {
+      type: String,
+      trim: true,
+      required: true,
+    },
     contactPerson: {
       type: String,
-      required: true,
       trim: true,
+      required: false,
     },
     contactPhone: {
       type: String,
-      required: true,
       trim: true,
+      required: false,
     },
     email: {
       type: String,
@@ -64,16 +69,6 @@ const subDealerSchema = new mongoose.Schema(
         'Please enter a valid email',
       ],
     },
-    status: {
-      type: String,
-      required: true,
-      enum: ['Active', 'Inactive'],
-      default: 'Active',
-    },
-    dealer: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Dealer',
-    },
     username: {
       type: String,
       required: true,
@@ -84,31 +79,11 @@ const subDealerSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    eligibleForIncentive: {
-      type: Boolean,
-      default: true,
-    },
-    eligibleForPoints: {
-      type: Boolean,
-      default: true,
-    },
-    walletIncentive: {
-      type: Number,
-      default: 0,
-    },
-    walletPoints: {
-      type: Number,
-      default: 0,
-    },
-    savedPayoutDetails: {
-      payoutMethod: { type: String, enum: ['Bank', 'UPI'] },
-      bankDetails: {
-        accountNumber: { type: String, default: '' },
-        ifscCode: { type: String, default: '' },
-        bankName: { type: String, default: '' },
-        accountHolderName: { type: String, default: '' },
-      },
-      upiId: { type: String, default: '' },
+    status: {
+      type: String,
+      required: true,
+      enum: ['Active', 'Inactive'],
+      default: 'Active',
     },
   },
   {
@@ -116,13 +91,22 @@ const subDealerSchema = new mongoose.Schema(
   }
 );
 
-subDealerSchema.pre('save', async function (next) {
+// Hash password before saving
+accountsMemberSchema.pre('save', async function (next) {
   if (this.isModified('password')) {
     this.password = await bcrypt.hash(this.password, 10);
   }
   next();
 });
 
-const SubDealer = mongoose.model('SubDealer', subDealerSchema);
+// Text index for search
+accountsMemberSchema.index({
+  name: 'text',
+  state: 'text',
+  district: 'text',
+  addressLine1: 'text',
+});
 
-export default SubDealer;
+const AccountsMember = mongoose.model('AccountsMember', accountsMemberSchema);
+
+export default AccountsMember;

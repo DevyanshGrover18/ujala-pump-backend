@@ -75,7 +75,11 @@ export const installMotor = async (req, res) => {
     }
 
     // Find logged-in plumber
-    const plumber = await Plumber.findById(req.user.plumber);
+    const plumberId = req.user.plumber || req.user.id;
+    let plumber = await Plumber.findById(plumberId);
+    if (!plumber && req.user.id) {
+      plumber = (await Plumber.findOne({ user: req.user.id })) || (await Plumber.findOne({ username: req.user.username }));
+    }
     if (!plumber) {
       return res.status(404).json({ message: 'Plumber profile not found' });
     }
@@ -117,24 +121,32 @@ export const installMotor = async (req, res) => {
     const savedInstallation = await installation.save();
 
     // Create Incentive Claim for the Plumber if eligible
-    if (product.incentiveEligible !== false) {
-      const plumberIncentive = product.model?.plumberIncentive || 0;
+    let plumberIncentive = 0;
+    const isProductEligible = product.incentiveEligible !== false;
+    const isPlumberEligible =
+      plumber.eligibleForIncentive !== false &&
+      plumber.eligibleForIncentive !== 'false';
 
-      const claim = new IncentiveClaim({
-        sellerType: 'Plumber',
-        sellerId: plumber._id,
-        sellerName: plumber.name,
-        product: product._id,
-        serialNumber: product.serialNumber,
-        model: product.model?._id,
-        modelName: product.model?.name,
-        incentiveAmount: plumberIncentive,
-        points: 0,
-        installation: savedInstallation._id,
-        status: 'Approval Pending',
-      });
+    if (isProductEligible && isPlumberEligible) {
+      plumberIncentive = Number(product.model?.plumberIncentive || 0);
 
-      await claim.save();
+      if (plumberIncentive > 0) {
+        const claim = new IncentiveClaim({
+          sellerType: 'Plumber',
+          sellerId: plumber._id,
+          sellerName: plumber.name,
+          product: product._id,
+          serialNumber: product.serialNumber,
+          model: product.model?._id,
+          modelName: product.model?.name,
+          incentiveAmount: plumberIncentive,
+          points: 0,
+          installation: savedInstallation._id,
+          status: 'Approval Pending',
+        });
+
+        await claim.save();
+      }
     }
 
     // Return populated installation data

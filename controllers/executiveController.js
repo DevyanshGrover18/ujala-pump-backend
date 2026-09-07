@@ -343,7 +343,13 @@ export const deleteMultipleExecutives = async (req, res) => {
 
 export const getExecutiveCustomers = async (req, res) => {
   try {
-    const exec = await Executive.findOne({ user: req.user.id });
+    const execId = req.user.executive;
+    let exec = execId ? await Executive.findById(execId) : null;
+    if (!exec && req.user.id) {
+      exec =
+        (await Executive.findOne({ user: req.user.id })) ||
+        (await Executive.findOne({ username: req.user.username }));
+    }
     if (!exec) {
       return res.status(404).json({ message: 'Executive profile not found' });
     }

@@ -6,6 +6,8 @@ import {
   resolveReplacementRequest,
   getAvailableStockForReplacement,
   getMyDefectiveStock,
+  deleteReplacementRequest,
+  deleteMultipleReplacementRequests,
 } from '../controllers/productReplacementController.js';
 import { verifyToken } from '../middleware/roleMiddleware.js';
 
@@ -29,4 +31,13 @@ router.get('/:id/available-stock', verifyToken, getAvailableStockForReplacement)
 // Resolve replacement request
 router.patch('/:id/resolve', verifyToken, resolveReplacementRequest);
 
+// Bulk delete replacement requests
+router.delete('/bulk', verifyToken, deleteMultipleReplacementRequests);
+router.delete('/', verifyToken, deleteMultipleReplacementRequests);
+router.post('/bulk-delete', verifyToken, deleteMultipleReplacementRequests);
+
+// Delete single replacement request
+router.delete('/:id', verifyToken, deleteReplacementRequest);
+
 export default router;
+

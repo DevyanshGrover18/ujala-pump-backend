@@ -5,32 +5,32 @@ import SubDealer from '../models/SubDealer.js';
 import Plumber from '../models/Plumber.js';
 import Sale from '../models/Sale.js';
 
-const getSellerInfo = async (sellerType, sellerId) => {
-  if (sellerType === 'Distributor')
-    return Distributor.findById(sellerId)
-      .select(
-        'name distributorId contactPerson contactPhone email walletIncentive walletPoints eligibleForIncentive eligibleForPoints'
-      )
-      .lean();
-  if (sellerType === 'Dealer')
-    return Dealer.findById(sellerId)
-      .select(
-        'name dealerId contactPerson contactPhone email walletIncentive walletPoints eligibleForIncentive eligibleForPoints'
-      )
-      .lean();
-  if (sellerType === 'SubDealer')
-    return SubDealer.findById(sellerId)
-      .select(
-        'name subDealerId contactPerson contactPhone email walletIncentive walletPoints eligibleForIncentive eligibleForPoints'
-      )
-      .lean();
-  if (sellerType === 'Plumber')
-    return Plumber.findById(sellerId)
-      .select(
-        'name plumberId phone username walletIncentive walletPoints eligibleForIncentive'
-      )
-      .lean();
-  return null;
+const getSellerInfo = async (sellerType, sellerId, userId, username) => {
+  let model;
+  let fields =
+    'name contactPerson contactPhone email walletIncentive walletPoints eligibleForIncentive eligibleForPoints savedPayoutDetails';
+  if (sellerType === 'Distributor') {
+    model = Distributor;
+    fields = 'distributorId ' + fields;
+  } else if (sellerType === 'Dealer') {
+    model = Dealer;
+    fields = 'dealerId ' + fields;
+  } else if (sellerType === 'SubDealer') {
+    model = SubDealer;
+    fields = 'subDealerId ' + fields;
+  } else if (sellerType === 'Plumber') {
+    model = Plumber;
+    fields = 'name plumberId phone username walletIncentive walletPoints eligibleForIncentive savedPayoutDetails';
+  } else {
+    return null;
+  }
+
+  let seller = sellerId ? await model.findById(sellerId).select(fields).lean() : null;
+  if (!seller && userId) {
+    seller = (await model.findOne({ user: userId }).select(fields).lean()) ||
+      (username ? await model.findOne({ username }).select(fields).lean() : null);
+  }
+  return seller;
 };
 
 // GET /api/incentives - Admin: all claims grouped by saleGroupId
@@ -229,11 +229,30 @@ export const getMyClaims = async (req, res) => {
       sellerId = req.user.plumber;
     } else return res.status(403).json({ message: 'Unauthorized' });
 
-    const claims = await IncentiveClaim.find({ sellerId })
-      .populate('product', 'serialNumber')
+    // Fetch seller eligibility and wallet info
+    const seller = await getSellerInfo(
+      sellerType,
+      sellerId,
+      req.user.id,
+      req.user.username
+    );
+    const finalSellerId = seller ? seller._id : sellerId;
+    const eligibleForIncentive = seller?.eligibleForIncentive !== false;
+    const eligibleForPoints =
+      sellerType !== 'Plumber' && seller?.eligibleForPoints !== false;
+
+    const rawClaims = await IncentiveClaim.find({ sellerId: finalSellerId })
+      .populate('product', 'serialNumber productName')
       .populate('model', 'name code')
       .sort({ claimDate: -1 })
       .lean();
+
+    // Sanitize claim data according to eligibility
+    const claims = rawClaims.map((c) => ({
+      ...c,
+      incentiveAmount: eligibleForIncentive ? (c.incentiveAmount || 0) : null,
+      points: eligibleForPoints ? (c.points || 0) : null,
+    }));
 
     // Group by saleGroupId
     const groupMap = new Map();
@@ -248,14 +267,14 @@ export const getMyClaims = async (req, res) => {
             status: c.status,
             rejectionReason: c.rejectionReason,
             items: [],
-            totalIncentive: 0,
-            totalPoints: 0,
+            totalIncentive: eligibleForIncentive ? 0 : null,
+            totalPoints: eligibleForPoints ? 0 : null,
           });
         }
         const grp = groupMap.get(c.saleGroupId);
         grp.items.push(c);
-        grp.totalIncentive += c.incentiveAmount || 0;
-        grp.totalPoints += c.points || 0;
+        if (eligibleForIncentive) grp.totalIncentive += c.incentiveAmount || 0;
+        if (eligibleForPoints) grp.totalPoints += c.points || 0;
         if (c.status === 'Approval Pending') grp.status = 'Approval Pending';
       } else {
         ungrouped.push({
@@ -265,8 +284,8 @@ export const getMyClaims = async (req, res) => {
           status: c.status,
           rejectionReason: c.rejectionReason,
           items: [c],
-          totalIncentive: c.incentiveAmount || 0,
-          totalPoints: c.points || 0,
+          totalIncentive: eligibleForIncentive ? (c.incentiveAmount || 0) : null,
+          totalPoints: eligibleForPoints ? (c.points || 0) : null,
         });
       }
     }
@@ -275,17 +294,36 @@ export const getMyClaims = async (req, res) => {
       (a, b) => new Date(b.claimDate) - new Date(a.claimDate)
     );
 
-    // Also get wallet balance
-    const seller = await getSellerInfo(sellerType, sellerId);
+    // Calculate pending statistics
+    let pendingIncentive = 0;
+    let pendingPoints = 0;
+    for (const g of grouped) {
+      if (g.status === 'Approval Pending') {
+        if (eligibleForIncentive && typeof g.totalIncentive === 'number') {
+          pendingIncentive += g.totalIncentive;
+        }
+        if (eligibleForPoints && typeof g.totalPoints === 'number') {
+          pendingPoints += g.totalPoints;
+        }
+      }
+    }
 
     res.json({
+      sellerType,
+      sellerName: seller?.name || '',
       claims: grouped,
       wallet: {
-        incentive: seller?.walletIncentive ?? 0,
-        points: seller?.walletPoints ?? 0,
+        incentive: eligibleForIncentive ? (seller?.walletIncentive ?? 0) : null,
+        points: eligibleForPoints ? (seller?.walletPoints ?? 0) : null,
       },
-      eligibleForIncentive: seller?.eligibleForIncentive !== false,
-      eligibleForPoints: seller?.eligibleForPoints !== false,
+      stats: {
+        pendingIncentive: eligibleForIncentive ? pendingIncentive : null,
+        pendingPoints: eligibleForPoints ? pendingPoints : null,
+        totalClaims: grouped.length,
+      },
+      eligibleForIncentive,
+      eligibleForPoints,
+      savedPayoutDetails: seller?.savedPayoutDetails || null,
     });
   } catch (err) {
     console.error('getMyClaims error:', err);

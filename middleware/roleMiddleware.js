@@ -84,6 +84,11 @@ const ROLE_PERMISSIONS = {
       view: true,
     },
   },
+  accounts: {
+    sales: { add: false, modify: false, delete: false, full: false, view: true },
+    incentives: { add: false, modify: false, delete: false, full: false, view: true },
+    payouts: { add: false, modify: false, delete: false, full: false, view: true },
+  },
 };
 
 const verifyToken = async (req, res, next) => {
@@ -122,9 +127,13 @@ const verifyToken = async (req, res, next) => {
     // Single device session enforcement: Check sessionVersion in database
     let dbUser;
     if (sanitizedRole === 'member') {
-      dbUser = await UserRole.findById(decoded.id).select('sessionVersion isActive');
+      dbUser = await UserRole.findById(decoded.id).select(
+        'sessionVersion isActive'
+      );
     } else {
-      dbUser = await User.findById(decoded.id).select('sessionVersion isActive');
+      dbUser = await User.findById(decoded.id).select(
+        'sessionVersion isActive distributor factory dealer subDealer executive plumber accountsMember'
+      );
     }
 
     if (!dbUser) {
@@ -142,11 +151,23 @@ const verifyToken = async (req, res, next) => {
     if (dbUser.sessionVersion !== decoded.sessionVersion) {
       return res
         .status(401)
-        .json(createSecureErrorResponse('Session expired or logged in from another device.', 401));
+        .json(
+          createSecureErrorResponse(
+            'Session expired or logged in from another device.',
+            401
+          )
+        );
     }
 
     req.user = {
       ...decoded,
+      distributor: decoded.distributor || dbUser.distributor,
+      factory: decoded.factory || dbUser.factory,
+      dealer: decoded.dealer || dbUser.dealer,
+      subDealer: decoded.subDealer || dbUser.subDealer,
+      executive: decoded.executive || dbUser.executive,
+      plumber: decoded.plumber || dbUser.plumber,
+      accountsMember: decoded.accountsMember || dbUser.accountsMember,
       role: sanitizedRole,
     };
     next();
@@ -210,6 +231,23 @@ const checkPermission = (section, permission) => {
         .status(500)
         .json(createSecureErrorResponse('Error checking permissions.', 500));
     }
+  };
+};
+
+// Deny a specific role regardless of section access (used for view-only roles)
+const denyRole = (role) => {
+  return (req, res, next) => {
+    if (req.user && req.user.role === role) {
+      return res
+        .status(403)
+        .json(
+          createSecureErrorResponse(
+            'Access denied. Role does not permit this action.',
+            403
+          )
+        );
+    }
+    next();
   };
 };
 
@@ -311,6 +349,7 @@ const checkSectionAccess = (section) => {
           'products',
           'orders',
         ],
+        accounts: ['sales', 'incentives', 'payouts', 'dashboard'],
       };
 
       if (sectionAccess[role] && sectionAccess[role].includes(section)) {
@@ -340,4 +379,5 @@ export {
   checkPermission,
   checkMultiplePermissions,
   checkSectionAccess,
+  denyRole,
 };

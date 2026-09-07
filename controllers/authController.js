@@ -11,12 +11,32 @@ import {
   createSecureErrorResponse,
 } from '../utils/security.js';
 
-const generateToken = (id, role, distributor, factory, dealer, subDealer, plumber, sessionVersion) => {
+const generateToken = (
+  id,
+  role,
+  distributor,
+  factory,
+  dealer,
+  subDealer,
+  plumber,
+  executive,
+  sessionVersion
+) => {
   const jwtSecret = validateJWTSecret();
   const expiresIn = process.env.JWT_EXPIRES_IN || '6h';
 
   return jwt.sign(
-    { id, role, distributor, factory, dealer, subDealer, plumber, sessionVersion },
+    {
+      id,
+      role,
+      distributor,
+      factory,
+      dealer,
+      subDealer,
+      plumber,
+      executive,
+      sessionVersion,
+    },
     jwtSecret,
     { expiresIn }
   );
@@ -53,6 +73,10 @@ const findUserByRole = async (username, role) => {
     case 'plumber':
       return await User.findOne(query)
         .populate('plumber')
+        .select('+password');
+    case 'accounts':
+      return await User.findOne(query)
+        .populate('accountsMember')
         .select('+password');
     default:
       return await User.findOne(query).select('+password');
@@ -131,7 +155,17 @@ export const login = async (req, res) => {
         role: 'member',
         accessControl: user.accessControl,
         privileges: user.accessControl,
-        token: generateToken(user._id, 'member', null, null, null, null, null, sessionVersion),
+        token: generateToken(
+          user._id,
+          'member',
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          sessionVersion
+        ),
       };
       return res.json({ user: userData });
     }
@@ -147,14 +181,16 @@ export const login = async (req, res) => {
       subDealer: user.subDealer,
       executive: user.executive,
       plumber: user.plumber,
+      accountsMember: user.accountsMember,
       token: generateToken(
         user._id,
         user.role,
-        user.distributor?._id,
-        user.factory?._id,
-        user.dealer?._id,
-        user.subDealer?._id,
-        user.plumber?._id,
+        user.distributor?._id || user.distributor,
+        user.factory?._id || user.factory,
+        user.dealer?._id || user.dealer,
+        user.subDealer?._id || user.subDealer,
+        user.plumber?._id || user.plumber,
+        user.executive?._id || user.executive,
         sessionVersion
       ),
     };

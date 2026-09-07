@@ -9,8 +9,13 @@ export const createComplaint = async (req, res) => {
       return res.status(400).json({ message: 'Serial number and motor details are required' });
     }
 
-    const plumberId = req.user.plumber;
-    const plumber = await Plumber.findById(plumberId);
+    const plumberId = req.user.plumber || req.user.id;
+    let plumber = await Plumber.findById(plumberId);
+    if (!plumber && req.user.id) {
+      plumber =
+        (await Plumber.findOne({ user: req.user.id })) ||
+        (await Plumber.findOne({ username: req.user.username }));
+    }
     if (!plumber) {
       return res.status(404).json({ message: 'Plumber profile not found' });
     }
@@ -35,8 +40,16 @@ export const createComplaint = async (req, res) => {
 
 export const getMyComplaints = async (req, res) => {
   try {
-    const plumberId = req.user.plumber;
-    const complaints = await Complaint.find({ plumber: plumberId }).sort({ createdAt: -1 });
+    const plumberId = req.user.plumber || req.user.id;
+    let plumber = await Plumber.findById(plumberId);
+    if (!plumber && req.user.id) {
+      plumber =
+        (await Plumber.findOne({ user: req.user.id })) ||
+        (await Plumber.findOne({ username: req.user.username }));
+    }
+    const complaints = await Complaint.find({
+      plumber: plumber ? plumber._id : plumberId,
+    }).sort({ createdAt: -1 });
     res.json(complaints);
   } catch (error) {
     console.error('Error fetching complaints:', error);

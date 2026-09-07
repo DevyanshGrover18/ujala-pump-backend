@@ -782,6 +782,7 @@ export const updateSale = async (req, res) => {
       plumberName,
       alternateMobileNumber,
       plumberMobileNumber,
+      saleDate,
     } = req.body;
 
     const sale = await Sale.findById(saleId);
@@ -790,13 +791,23 @@ export const updateSale = async (req, res) => {
       return res.status(404).json({ message: 'Sale not found' });
     }
 
-    sale.customerName = customerName || sale.customerName;
-    sale.customerPhone = customerPhone || sale.customerPhone;
-    sale.customerAddress = customerAddress || sale.customerAddress;
-    sale.plumberName = plumberName || sale.plumberName;
+    sale.customerName = customerName !== undefined ? customerName : sale.customerName;
+    sale.customerPhone = customerPhone !== undefined ? customerPhone : sale.customerPhone;
+    sale.customerAddress = customerAddress !== undefined ? customerAddress : sale.customerAddress;
+    sale.plumberName = plumberName !== undefined ? plumberName : sale.plumberName;
     sale.alternateMobileNumber =
-      alternateMobileNumber || sale.alternateMobileNumber;
-    sale.plumberMobileNumber = plumberMobileNumber || sale.plumberMobileNumber;
+      alternateMobileNumber !== undefined ? alternateMobileNumber : sale.alternateMobileNumber;
+    sale.plumberMobileNumber = plumberMobileNumber !== undefined ? plumberMobileNumber : sale.plumberMobileNumber;
+
+    if (saleDate) {
+      sale.saleDate = new Date(saleDate);
+      sale.soldAt = new Date(saleDate);
+      if (sale.product) {
+        await Product.findByIdAndUpdate(sale.product, {
+          saleDate: sale.saleDate,
+        });
+      }
+    }
 
     const updatedSale = await sale.save();
     res.json(updatedSale);

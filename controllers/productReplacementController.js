@@ -682,3 +682,54 @@ export const getMyDefectiveStock = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+/**
+ * Delete single replacement request
+ */
+export const deleteReplacementRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const replacement = await ProductReplacement.findById(id);
+    if (!replacement) {
+      return res.status(404).json({ message: 'Replacement request not found' });
+    }
+
+    const { role } = req.user;
+    if (role !== 'admin' && role !== 'member') {
+      return res.status(403).json({ message: 'Only admins can delete replacement requests' });
+    }
+
+    await ProductReplacement.findByIdAndDelete(id);
+    res.status(200).json({ message: 'Replacement request deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting replacement request:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Bulk delete replacement requests
+ */
+export const deleteMultipleReplacementRequests = async (req, res) => {
+  try {
+    const ids = req.body.ids || req.body.replacementIds;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: 'No replacement request IDs provided' });
+    }
+
+    const { role } = req.user;
+    if (role !== 'admin' && role !== 'member') {
+      return res.status(403).json({ message: 'Only admins can delete replacement requests' });
+    }
+
+    const result = await ProductReplacement.deleteMany({ _id: { $in: ids } });
+    res.status(200).json({
+      message: `${result.deletedCount} replacement request(s) deleted successfully`,
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error('Error bulk deleting replacement requests:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
