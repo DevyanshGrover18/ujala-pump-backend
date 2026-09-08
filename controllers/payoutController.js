@@ -1,9 +1,11 @@
+import mongoose from 'mongoose';
 import PayoutSetting from '../models/PayoutSetting.js';
 import PayoutRequest from '../models/PayoutRequest.js';
 import Distributor from '../models/Distributor.js';
 import Dealer from '../models/Dealer.js';
 import SubDealer from '../models/SubDealer.js';
 import Plumber from '../models/Plumber.js';
+import UserRole from '../models/UserRole.js';
 
 // Helper to fetch seller/plumber document
 const getSellerModel = (sellerType) => {
@@ -244,7 +246,7 @@ export const getMyPayouts = async (req, res) => {
 // GET /api/payouts - Admin: View all payout requests with metrics and filters
 export const getAllPayouts = async (req, res) => {
   try {
-    const { status, requesterType, search } = req.query;
+    const { status, requesterType, search, startDate, endDate } = req.query;
     let query = {};
 
     if (status && status !== 'All') {
@@ -253,6 +255,16 @@ export const getAllPayouts = async (req, res) => {
 
     if (requesterType && requesterType !== 'All') {
       query.requesterType = requesterType;
+    }
+
+    if (startDate || endDate) {
+      query.requestedAt = {};
+      if (startDate) query.requestedAt.$gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.requestedAt.$lte = end;
+      }
     }
 
     if (search && search.trim()) {
@@ -267,9 +279,28 @@ export const getAllPayouts = async (req, res) => {
     }
 
     const allPayouts = await PayoutRequest.find(query)
-      .populate('processedBy', 'username role')
+      .populate({
+        path: 'processedBy',
+        select: 'username role accountsMember',
+        populate: { path: 'accountsMember', select: 'name accountsId' },
+      })
       .sort({ requestedAt: -1 })
       .lean();
+
+    const unresolvedIds = allPayouts
+      .filter((p) => p.processedBy && mongoose.Types.ObjectId.isValid(p.processedBy) && !p.processedBy.username)
+      .map((p) => p.processedBy);
+
+    if (unresolvedIds.length > 0) {
+      const userRoles = await UserRole.find({ _id: { $in: unresolvedIds } }).select('name username').lean();
+      const userRoleMap = new Map();
+      userRoles.forEach((ur) => userRoleMap.set(String(ur._id), ur));
+      for (const p of allPayouts) {
+        if (p.processedBy && !p.processedBy.username && userRoleMap.has(String(p.processedBy))) {
+          p.processedBy = { ...userRoleMap.get(String(p.processedBy)), role: 'staff' };
+        }
+      }
+    }
 
     // Summary metrics across all records in DB
     const allRecords = await PayoutRequest.find().lean();

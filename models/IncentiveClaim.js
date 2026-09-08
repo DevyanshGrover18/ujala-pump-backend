@@ -84,6 +84,15 @@ const incentiveClaimSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    processedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    processedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

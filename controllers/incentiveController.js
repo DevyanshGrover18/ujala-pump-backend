@@ -1,9 +1,11 @@
+import mongoose from 'mongoose';
 import IncentiveClaim from '../models/IncentiveClaim.js';
 import Distributor from '../models/Distributor.js';
 import Dealer from '../models/Dealer.js';
 import SubDealer from '../models/SubDealer.js';
 import Plumber from '../models/Plumber.js';
 import Sale from '../models/Sale.js';
+import UserRole from '../models/UserRole.js';
 
 const getSellerInfo = async (sellerType, sellerId, userId, username) => {
   let model;
@@ -36,17 +38,51 @@ const getSellerInfo = async (sellerType, sellerId, userId, username) => {
 // GET /api/incentives - Admin: all claims grouped by saleGroupId
 export const getAllClaims = async (req, res) => {
   try {
-    const claims = await IncentiveClaim.find()
+    const { startDate, endDate } = req.query;
+    let query = {};
+
+    if (startDate || endDate) {
+      query.claimDate = {};
+      if (startDate) query.claimDate.$gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.claimDate.$lte = end;
+      }
+    }
+
+    const claims = await IncentiveClaim.find(query)
       .populate('product', 'serialNumber')
       .populate('model', 'name code incentive points')
+      .populate({
+        path: 'processedBy',
+        select: 'username role accountsMember',
+        populate: { path: 'accountsMember', select: 'name accountsId' },
+      })
       .sort({ claimDate: -1 })
       .lean();
+
+    const unresolvedIds = claims
+      .filter((c) => c.processedBy && mongoose.Types.ObjectId.isValid(c.processedBy) && !c.processedBy.username)
+      .map((c) => c.processedBy);
+
+    const userRoleMap = new Map();
+    if (unresolvedIds.length > 0) {
+      const userRoles = await UserRole.find({ _id: { $in: unresolvedIds } }).select('name username').lean();
+      userRoles.forEach((ur) => userRoleMap.set(String(ur._id), ur));
+    }
 
     // Group by saleGroupId where present; ungrouped items get their own entry
     const groupMap = new Map();
     const ungrouped = [];
 
     for (const c of claims) {
+      const resolvedProcessedBy = c.processedBy?.username
+        ? c.processedBy
+        : c.processedBy && userRoleMap.has(String(c.processedBy))
+        ? { ...userRoleMap.get(String(c.processedBy)), role: 'staff' }
+        : c.processedBy;
+
       if (c.saleGroupId) {
         if (!groupMap.has(c.saleGroupId)) {
           groupMap.set(c.saleGroupId, {
@@ -62,6 +98,8 @@ export const getAllClaims = async (req, res) => {
             reapplyNotes: c.reapplyNotes,
             reappliedAt: c.reappliedAt,
             reapplyCount: c.reapplyCount || 0,
+            processedBy: resolvedProcessedBy,
+            processedAt: c.processedAt,
             items: [],
             totalIncentive: 0,
             totalPoints: 0,
@@ -75,6 +113,8 @@ export const getAllClaims = async (req, res) => {
         if (c.status === 'Approval Pending') grp.status = 'Approval Pending';
         if (c.reapplyNotes) grp.reapplyNotes = c.reapplyNotes;
         if (c.reappliedAt) grp.reappliedAt = c.reappliedAt;
+        if (resolvedProcessedBy) grp.processedBy = resolvedProcessedBy;
+        if (c.processedAt) grp.processedAt = c.processedAt;
       } else {
         ungrouped.push({
           _id: c._id,
@@ -89,6 +129,8 @@ export const getAllClaims = async (req, res) => {
           reapplyNotes: c.reapplyNotes,
           reappliedAt: c.reappliedAt,
           reapplyCount: c.reapplyCount || 0,
+          processedBy: resolvedProcessedBy,
+          processedAt: c.processedAt,
           items: [c],
           totalIncentive: c.incentiveAmount || 0,
           totalPoints: c.points || 0,
@@ -194,6 +236,8 @@ export const verifyClaim = async (req, res) => {
 
       if (action === 'approve') {
         c.status = 'Approved';
+        c.processedBy = req.user.id;
+        c.processedAt = new Date();
         const incUpdate = {
           $inc: { walletIncentive: c.incentiveAmount, walletPoints: c.points },
         };
@@ -208,8 +252,12 @@ export const verifyClaim = async (req, res) => {
       } else if (action === 'reject') {
         c.status = 'Rejected';
         c.rejectionReason = rejectionReason.trim();
+        c.processedBy = req.user.id;
+        c.processedAt = new Date();
       } else {
         c.status = 'Incomplete';
+        c.processedBy = req.user.id;
+        c.processedAt = new Date();
       }
       await c.save();
     }
