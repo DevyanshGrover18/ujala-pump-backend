@@ -35,9 +35,9 @@ const userRoleSchema = new mongoose.Schema(
       trim: true,
       validate: {
         validator: function (v) {
-          return /^[+]?[1-9][\d\s\-()]{7,15}$/.test(v);
+          return /^\d{10}$/.test(v);
         },
-        message: 'Invalid phone number format',
+        message: 'Phone number must be exactly 10 digits',
       },
     },
     username: {
@@ -171,8 +171,7 @@ userRoleSchema.methods.hasAccessToSection = function (section) {
     sectionPermissions.full ||
     sectionPermissions.add ||
     sectionPermissions.modify ||
-    sectionPermissions.delete ||
-    sectionPermissions.view
+    sectionPermissions.delete
   );
 };
 

@@ -18,6 +18,8 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
+      uppercase: true,
+      trim: true,
     },
     month: {
       type: Number,

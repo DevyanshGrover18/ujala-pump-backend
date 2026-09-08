@@ -11,6 +11,8 @@ const complaintSchema = new mongoose.Schema(
       type: String,
       required: true,
       index: true,
+      uppercase: true,
+      trim: true,
     },
     motorDetails: {
       type: mongoose.Schema.Types.Mixed,

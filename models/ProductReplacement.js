@@ -20,6 +20,8 @@ const productReplacementSchema = new mongoose.Schema(
     oldSerialNumber: {
       type: String,
       required: true,
+      uppercase: true,
+      trim: true,
     },
     newProduct: {
       type: mongoose.Schema.Types.ObjectId,
@@ -29,6 +31,8 @@ const productReplacementSchema = new mongoose.Schema(
     newSerialNumber: {
       type: String,
       default: null,
+      uppercase: true,
+      trim: true,
     },
     reason: {
       type: String,

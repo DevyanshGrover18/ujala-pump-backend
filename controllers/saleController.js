@@ -411,8 +411,9 @@ export const distributorBulkAssignDealer = async (req, res) => {
     const results = [];
 
     for (const item of products) {
+      const serialNum = item.serialNumber ? String(item.serialNumber).trim().toUpperCase() : '';
       const product = await Product.findOne({
-        serialNumber: item.serialNumber,
+        serialNumber: serialNum,
         distributor: distributorId,
       }).session(session);
 
@@ -421,7 +422,7 @@ export const distributorBulkAssignDealer = async (req, res) => {
         session.endSession();
         return res
           .status(404)
-          .json({ message: `Product not found: ${item.serialNumber}` });
+          .json({ message: `Product not found: ${serialNum || item.serialNumber}` });
       }
 
       if (product.sold) {
@@ -429,7 +430,7 @@ export const distributorBulkAssignDealer = async (req, res) => {
         session.endSession();
         return res
           .status(400)
-          .json({ message: `Product already sold: ${item.serialNumber}` });
+          .json({ message: `Product already sold: ${serialNum || item.serialNumber}` });
       }
 
       const alreadyAssigned = await DistributorDealerProduct.findOne({
@@ -503,12 +504,13 @@ export const dealerBulkAssignSubDealer = async (req, res) => {
     const results = [];
 
     for (const item of products) {
+      const serialNum = item.serialNumber ? String(item.serialNumber).trim().toUpperCase() : '';
       const product = await Product.findOne({
-        serialNumber: item.serialNumber,
+        serialNumber: serialNum,
       }).session(session);
 
       if (!product) {
-        throw new Error(`Product not found: ${item.serialNumber}`);
+        throw new Error(`Product not found: ${serialNum || item.serialNumber}`);
       }
 
       const sale = await Sale.findOne({
@@ -669,8 +671,9 @@ export const adminBulkDispatch = async (req, res) => {
     const results = [];
 
     for (const item of products) {
+      const serialNum = item.serialNumber ? String(item.serialNumber).trim().toUpperCase() : '';
       const product = await Product.findOne({
-        serialNumber: item.serialNumber,
+        serialNumber: serialNum,
       }).session(session);
 
       if (!product) {
@@ -678,7 +681,7 @@ export const adminBulkDispatch = async (req, res) => {
         session.endSession();
         return res
           .status(404)
-          .json({ message: `Product not found: ${item.serialNumber}` });
+          .json({ message: `Product not found: ${serialNum || item.serialNumber}` });
       }
 
       if (product.sold) {
@@ -686,7 +689,7 @@ export const adminBulkDispatch = async (req, res) => {
         session.endSession();
         return res
           .status(400)
-          .json({ message: `Product already sold: ${item.serialNumber}` });
+          .json({ message: `Product already sold: ${serialNum || item.serialNumber}` });
       }
 
       if (

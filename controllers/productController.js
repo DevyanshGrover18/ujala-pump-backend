@@ -101,7 +101,8 @@ export const getProducts = async (req, res) => {
 
 export const getProductBySerialNumber = async (req, res) => {
   try {
-    const { serialNumber } = req.params;
+    const rawSerialNumber = req.params.serialNumber || '';
+    const serialNumber = String(rawSerialNumber).trim().toUpperCase();
     const distributorId = req.user?.distributor;
     const dealerId = req.user?.dealer;
 
@@ -181,6 +182,8 @@ export const uploadOfflineProducts = async (req, res) => {
       });
     }
 
+    const cleanSerialNumbers = serialNumbers.map((s) => String(s).trim().toUpperCase());
+
     // Determine current month and year automatically
     const now = new Date();
     const month = now.getMonth() + 1; // getMonth() is 0-indexed
@@ -201,7 +204,7 @@ export const uploadOfflineProducts = async (req, res) => {
 
     // Check for existing serial numbers to prevent duplicates
     const existingProducts = await Product.find({
-      serialNumber: { $in: serialNumbers },
+      serialNumber: { $in: cleanSerialNumbers },
     });
     if (existingProducts.length > 0) {
       const existingSerials = existingProducts
@@ -215,7 +218,7 @@ export const uploadOfflineProducts = async (req, res) => {
 
     // Generate new product IDs using getNextSequence
     const productsToInsert = [];
-    for (const serial of serialNumbers) {
+    for (const serial of cleanSerialNumbers) {
       const seqValue = await getNextSequence('product');
       const newProductId = `PROD${String(seqValue).padStart(5, '0')}`;
 

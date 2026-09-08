@@ -6,7 +6,8 @@ import Sale from '../models/Sale.js';
 
 export const getProductDetails = async (req, res) => {
   try {
-    const { serialNumber } = req.params;
+    const rawSerialNumber = req.params.serialNumber || '';
+    const serialNumber = String(rawSerialNumber).trim().toUpperCase();
 
     const orderItem = await OrderItem.findOne({ serialNumber })
       .populate('category')
@@ -45,7 +46,8 @@ export const getProductDetails = async (req, res) => {
 
 export const getProductDetailsAdminInventory = async (req, res) => {
   try {
-    const { serialNumber } = req.params;
+    const rawSerialNumber = req.params.serialNumber || '';
+    const serialNumber = String(rawSerialNumber).trim().toUpperCase();
     const product = await Product.findOne({ serialNumber })
       .populate('category')
       .populate('model')
@@ -113,7 +115,8 @@ export const getProductDetailsDistributorInventory = async (req, res) => {
     if (!distributorId)
       return res.status(401).json({ message: 'Unauthorized' });
 
-    const { serialNumber } = req.params;
+    const rawSerialNumber = req.params.serialNumber || '';
+    const serialNumber = String(rawSerialNumber).trim().toUpperCase();
     if (!serialNumber)
       return res.status(400).json({ message: 'Serial number required' });
 
@@ -182,7 +185,8 @@ export const getProductDetailsDealerInventory = async (req, res) => {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const { serialNumber } = req.params;
+    const rawSerialNumber = req.params.serialNumber || '';
+    const serialNumber = String(rawSerialNumber).trim().toUpperCase();
     if (!serialNumber) {
       return res.status(400).json({ message: 'Serial number required' });
     }
@@ -265,7 +269,8 @@ export const getProductDetailsSubDealerInventory = async (req, res) => {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const { serialNumber } = req.params;
+    const rawSerialNumber = req.params.serialNumber || '';
+    const serialNumber = String(rawSerialNumber).trim().toUpperCase();
     if (!serialNumber) {
       return res.status(400).json({ message: 'Serial number required' });
     }

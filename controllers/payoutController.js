@@ -300,6 +300,17 @@ export const getAllPayouts = async (req, res) => {
   }
 };
 
+// GET /api/payouts/pending-count - Admin & Accounts: Get count of pending payout requests
+export const getPendingPayoutsCount = async (req, res) => {
+  try {
+    const count = await PayoutRequest.countDocuments({ status: 'Pending' });
+    res.json({ count });
+  } catch (err) {
+    console.error('getPendingPayoutsCount error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // DELETE /api/payouts - Admin: Delete multiple payout requests (refunds pending ones)
 export const deleteMultiplePayouts = async (req, res) => {
   try {

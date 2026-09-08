@@ -6,6 +6,8 @@ import {
   getMyClaims,
   deleteClaim,
   deleteMultipleClaims,
+  getPendingClaimsCount,
+  reapplyClaim,
 } from '../controllers/incentiveController.js';
 import { verifyToken } from '../middleware/roleMiddleware.js';
 
@@ -24,14 +26,18 @@ const isAdminOrAccounts = (req, res, next) => {
 
 router.use(verifyToken);
 
-// Seller routes (distributor/dealer/subdealer)
+// Seller & Plumber routes
 router.get('/my/claims', getMyClaims);
+router.post('/:id/reapply', reapplyClaim);
 
-// Admin routes
+// Admin & Accounts routes
 router.get('/', isAdminOrAccounts, getAllClaims);
+router.get('/pending-count', isAdminOrAccounts, getPendingClaimsCount);
 router.delete('/', isAdmin, deleteMultipleClaims);
 router.get('/:id', isAdminOrAccounts, getClaimById);
 router.post('/:id/verify', isAdminOrAccounts, verifyClaim);
 router.delete('/:id', isAdmin, deleteClaim);
 
 export default router;
+
+

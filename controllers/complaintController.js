@@ -3,7 +3,8 @@ import Plumber from '../models/Plumber.js';
 
 export const createComplaint = async (req, res) => {
   try {
-    const { serialNumber, motorDetails, additionalDetails } = req.body;
+    const { serialNumber: rawSerialNumber, motorDetails, additionalDetails } = req.body;
+    const serialNumber = rawSerialNumber ? String(rawSerialNumber).trim().toUpperCase() : '';
 
     if (!serialNumber || !motorDetails) {
       return res.status(400).json({ message: 'Serial number and motor details are required' });

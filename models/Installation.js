@@ -17,6 +17,8 @@ const installationSchema = new mongoose.Schema(
       required: true,
       unique: true,
       index: true,
+      uppercase: true,
+      trim: true,
     },
     model: {
       type: mongoose.Schema.Types.ObjectId,

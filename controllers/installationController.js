@@ -6,7 +6,8 @@ import IncentiveClaim from '../models/IncentiveClaim.js';
 
 export const checkSerialNumber = async (req, res) => {
   try {
-    const { serialNumber } = req.params;
+    const rawSerialNumber = req.params.serialNumber || '';
+    const serialNumber = String(rawSerialNumber).trim().toUpperCase();
 
     // 1. Look up if product exists in inventory
     const product = await Product.findOne({ serialNumber })
@@ -68,7 +69,8 @@ export const checkSerialNumber = async (req, res) => {
 
 export const installMotor = async (req, res) => {
   try {
-    const { serialNumber, latitude, longitude, image } = req.body;
+    const { serialNumber: rawSerialNumber, latitude, longitude, image } = req.body;
+    const serialNumber = rawSerialNumber ? String(rawSerialNumber).trim().toUpperCase() : '';
 
     if (!serialNumber || latitude === undefined || longitude === undefined) {
       return res.status(400).json({ message: 'Serial number and geolocation coordinates are required' });

@@ -58,6 +58,10 @@ export const getAllClaims = async (req, res) => {
             claimDate: c.claimDate,
             status: c.status, // all in group share status when approved/rejected
             rejectionReason: c.rejectionReason,
+            previousRejectionReason: c.previousRejectionReason,
+            reapplyNotes: c.reapplyNotes,
+            reappliedAt: c.reappliedAt,
+            reapplyCount: c.reapplyCount || 0,
             items: [],
             totalIncentive: 0,
             totalPoints: 0,
@@ -69,6 +73,8 @@ export const getAllClaims = async (req, res) => {
         grp.totalPoints += c.points || 0;
         // If any item is pending, group is pending
         if (c.status === 'Approval Pending') grp.status = 'Approval Pending';
+        if (c.reapplyNotes) grp.reapplyNotes = c.reapplyNotes;
+        if (c.reappliedAt) grp.reappliedAt = c.reappliedAt;
       } else {
         ungrouped.push({
           _id: c._id,
@@ -79,6 +85,10 @@ export const getAllClaims = async (req, res) => {
           claimDate: c.claimDate,
           status: c.status,
           rejectionReason: c.rejectionReason,
+          previousRejectionReason: c.previousRejectionReason,
+          reapplyNotes: c.reapplyNotes,
+          reappliedAt: c.reappliedAt,
+          reapplyCount: c.reapplyCount || 0,
           items: [c],
           totalIncentive: c.incentiveAmount || 0,
           totalPoints: c.points || 0,
@@ -266,6 +276,10 @@ export const getMyClaims = async (req, res) => {
             claimDate: c.claimDate,
             status: c.status,
             rejectionReason: c.rejectionReason,
+            previousRejectionReason: c.previousRejectionReason,
+            reapplyNotes: c.reapplyNotes,
+            reappliedAt: c.reappliedAt,
+            reapplyCount: c.reapplyCount || 0,
             items: [],
             totalIncentive: eligibleForIncentive ? 0 : null,
             totalPoints: eligibleForPoints ? 0 : null,
@@ -276,6 +290,8 @@ export const getMyClaims = async (req, res) => {
         if (eligibleForIncentive) grp.totalIncentive += c.incentiveAmount || 0;
         if (eligibleForPoints) grp.totalPoints += c.points || 0;
         if (c.status === 'Approval Pending') grp.status = 'Approval Pending';
+        if (c.reapplyNotes) grp.reapplyNotes = c.reapplyNotes;
+        if (c.reappliedAt) grp.reappliedAt = c.reappliedAt;
       } else {
         ungrouped.push({
           _id: c._id,
@@ -283,6 +299,10 @@ export const getMyClaims = async (req, res) => {
           claimDate: c.claimDate,
           status: c.status,
           rejectionReason: c.rejectionReason,
+          previousRejectionReason: c.previousRejectionReason,
+          reapplyNotes: c.reapplyNotes,
+          reappliedAt: c.reappliedAt,
+          reapplyCount: c.reapplyCount || 0,
           items: [c],
           totalIncentive: eligibleForIncentive ? (c.incentiveAmount || 0) : null,
           totalPoints: eligibleForPoints ? (c.points || 0) : null,
@@ -421,3 +441,88 @@ export const deleteMultipleClaims = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// GET /api/incentives/pending-count - Admin & Accounts: Get count of pending incentive claims
+export const getPendingClaimsCount = async (req, res) => {
+  try {
+    const groupedPending = await IncentiveClaim.distinct('saleGroupId', {
+      status: 'Approval Pending',
+      saleGroupId: { $ne: null },
+    });
+    const ungroupedPendingCount = await IncentiveClaim.countDocuments({
+      status: 'Approval Pending',
+      saleGroupId: null,
+    });
+    const count = groupedPending.length + ungroupedPendingCount;
+    res.json({ count });
+  } catch (err) {
+    console.error('getPendingClaimsCount error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// POST /api/incentives/:id/reapply - Seller / Plumber: Reapply for a rejected incentive claim
+export const reapplyClaim = async (req, res) => {
+  try {
+    let sellerType, sellerId;
+    if (req.user.distributor) {
+      sellerType = 'Distributor';
+      sellerId = req.user.distributor;
+    } else if (req.user.dealer) {
+      sellerType = 'Dealer';
+      sellerId = req.user.dealer;
+    } else if (req.user.subDealer) {
+      sellerType = 'SubDealer';
+      sellerId = req.user.subDealer;
+    } else if (req.user.plumber) {
+      sellerType = 'Plumber';
+      sellerId = req.user.plumber;
+    } else {
+      return res.status(403).json({ message: 'Unauthorized for incentive claim reapplication' });
+    }
+
+    const { id } = req.params;
+    const { notes } = req.body;
+
+    const claim = await IncentiveClaim.findById(id);
+    if (!claim) {
+      return res.status(404).json({ message: 'Incentive claim not found' });
+    }
+
+    // Verify ownership
+    const seller = await getSellerInfo(sellerType, sellerId, req.user.id, req.user.username);
+    const finalSellerId = seller ? seller._id.toString() : sellerId?.toString();
+    if (claim.sellerId.toString() !== finalSellerId) {
+      return res.status(403).json({ message: 'You can only reapply for your own claims' });
+    }
+
+    if (claim.status !== 'Rejected') {
+      return res.status(400).json({ message: 'Only rejected incentive claims can be reapplied' });
+    }
+
+    // If part of a saleGroupId, update all in the group
+    const claimsToUpdate = claim.saleGroupId
+      ? await IncentiveClaim.find({ saleGroupId: claim.saleGroupId, sellerId: finalSellerId })
+      : [claim];
+
+    for (const c of claimsToUpdate) {
+      c.status = 'Approval Pending';
+      c.previousRejectionReason = c.rejectionReason || '';
+      c.rejectionReason = '';
+      c.reapplyNotes = notes?.trim() || '';
+      c.reappliedAt = new Date();
+      c.reapplyCount = (c.reapplyCount || 0) + 1;
+      await c.save();
+    }
+
+    res.json({
+      message: 'Incentive claim resubmitted successfully for verification',
+      claim,
+    });
+  } catch (err) {
+    console.error('reapplyClaim error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+

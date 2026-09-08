@@ -2,6 +2,7 @@ import express from 'express';
 import {
   getThresholds,
   updateThresholds,
+  getPendingPayoutsCount,
   requestPayout,
   getMyPayouts,
   getAllPayouts,
@@ -28,6 +29,9 @@ router.use(verifyToken);
 // Thresholds
 router.get('/thresholds', getThresholds);
 router.put('/thresholds', isAdmin, updateThresholds);
+
+// Pending count for sidebar badges
+router.get('/pending-count', isAdminOrAccounts, getPendingPayoutsCount);
 
 // Seller & Plumber endpoints
 router.post('/request', denyRole('accounts'), requestPayout);

@@ -93,7 +93,8 @@ const isProductInWarranty = async (product) => {
  */
 export const verifySerialNumber = async (req, res) => {
   try {
-    const { serialNumber } = req.params;
+    const rawSerialNumber = req.params.serialNumber || '';
+    const serialNumber = String(rawSerialNumber).trim().toUpperCase();
     if (!serialNumber) {
       return res.status(400).json({ message: 'Serial number is required' });
     }
@@ -169,7 +170,8 @@ export const verifySerialNumber = async (req, res) => {
  */
 export const createReplacementRequest = async (req, res) => {
   try {
-    const { serialNumber, reason, description, proofImages } = req.body;
+    const { serialNumber: rawSerialNumber, reason, description, proofImages } = req.body;
+    const serialNumber = rawSerialNumber ? String(rawSerialNumber).trim().toUpperCase() : '';
 
     if (!serialNumber || !reason) {
       return res.status(400).json({ message: 'Serial number and reason are required' });
@@ -339,7 +341,7 @@ export const getReplacementRequests = async (req, res) => {
 export const resolveReplacementRequest = async (req, res) => {
   try {
     const { id } = req.params;
-    const { action, adminRemarks, newSerialNumber } = req.body;
+    const { action, adminRemarks } = req.body;
 
     if (!['Approved', 'Rejected'].includes(action)) {
       return res.status(400).json({ message: 'Invalid action. Must be Approved or Rejected' });
@@ -395,6 +397,7 @@ export const resolveReplacementRequest = async (req, res) => {
     }
 
     // Approved:
+    const newSerialNumber = req.body.newSerialNumber ? String(req.body.newSerialNumber).trim().toUpperCase() : '';
     if (!newSerialNumber) {
       return res.status(400).json({ message: 'New Product Serial Number is required for approval' });
     }
@@ -431,7 +434,7 @@ export const resolveReplacementRequest = async (req, res) => {
         return res.status(400).json({ message: 'This replacement product is already assigned to a dealer' });
       }
     } else {
-      if (newProduct.distributor !== null) {
+      if (newProduct.distributor) {
         return res.status(400).json({ message: 'This replacement product is already assigned to a distributor' });
       }
     }
@@ -618,7 +621,7 @@ export const getAvailableStockForReplacement = async (req, res) => {
         const assignedToDealer = await DistributorDealerProduct.findOne({ product: prod._id });
         if (assignedToDealer) continue;
       } else {
-        if (prod.distributor !== null) continue;
+        if (prod.distributor) continue;
       }
 
       available.push({

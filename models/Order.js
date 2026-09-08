@@ -11,6 +11,8 @@ const orderSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
+      uppercase: true,
+      trim: true,
     },
     month: {
       type: Number,
@@ -92,6 +94,8 @@ const orderItemSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
+      uppercase: true,
+      trim: true,
     },
     month: {
       type: Number,

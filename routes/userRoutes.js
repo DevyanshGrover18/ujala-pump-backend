@@ -31,28 +31,15 @@ router.post(
         return res.status(400).json({ message: 'Username already exists' });
       }
 
-      // Default Management View Permission
-      // If management section is present but has no permissions set, default view to true
-      if (accessControl && accessControl.management) {
-        const m = accessControl.management;
-        if (!m.add && !m.modify && !m.delete && !m.full && !m.view) {
-          m.view = true;
-        }
-      } else if (accessControl) {
-        // If management section is missing entirely, add it with view access
-        accessControl.management = {
-          view: true,
-          add: false,
-          modify: false,
-          delete: false,
-          full: false,
-        };
+      const cleanPhone = phone ? String(phone).trim() : '';
+      if (!cleanPhone || !/^\d{10}$/.test(cleanPhone)) {
+        return res.status(400).json({ message: 'Phone number must be exactly 10 digits' });
       }
 
       // Create new user
       const user = new UserRole({
         name,
-        phone,
+        phone: cleanPhone,
         username,
         password, // Pass plain password, model middleware will hash it
         accessControl,
@@ -139,6 +126,13 @@ router.put(
         assignedFactories,
       } = req.body;
 
+      if (phone !== undefined) {
+        const cleanPhone = String(phone).trim();
+        if (!/^\d{10}$/.test(cleanPhone)) {
+          return res.status(400).json({ message: 'Phone number must be exactly 10 digits' });
+        }
+      }
+
       // Check if username exists for other users
       if (username) {
         const existingUser = await UserRole.findOne({
@@ -150,17 +144,9 @@ router.put(
         }
       }
 
-      // Default Management View Permission logic for update
-      if (accessControl && accessControl.management) {
-        const m = accessControl.management;
-        if (!m.add && !m.modify && !m.delete && !m.full && !m.view) {
-          m.view = true;
-        }
-      }
-
       let updateData = {
         name,
-        phone,
+        phone: phone ? String(phone).trim() : undefined,
         username,
         accessControl,
         isActive,
@@ -181,7 +167,7 @@ router.put(
       // We need to use save() to trigger the pre-save hook for password hashing
       // So we update properties manually instead of using findByIdAndUpdate
       if (name) user.name = name;
-      if (phone) user.phone = phone;
+      if (phone) user.phone = String(phone).trim();
       if (username) user.username = username;
       if (accessControl) user.accessControl = accessControl;
       if (typeof isActive !== 'undefined') user.isActive = isActive;

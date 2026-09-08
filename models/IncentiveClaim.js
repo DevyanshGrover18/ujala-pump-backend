@@ -32,6 +32,8 @@ const incentiveClaimSchema = new mongoose.Schema(
     },
     serialNumber: {
       type: String,
+      uppercase: true,
+      trim: true,
     },
     model: {
       type: mongoose.Schema.Types.ObjectId,
@@ -62,6 +64,22 @@ const incentiveClaimSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    previousRejectionReason: {
+      type: String,
+      default: '',
+    },
+    reapplyNotes: {
+      type: String,
+      default: '',
+    },
+    reappliedAt: {
+      type: Date,
+      default: null,
+    },
+    reapplyCount: {
+      type: Number,
+      default: 0,
+    },
     claimDate: {
       type: Date,
       default: Date.now,
@@ -69,6 +87,7 @@ const incentiveClaimSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
 
 incentiveClaimSchema.index({ sellerId: 1 });
 incentiveClaimSchema.index({ status: 1 });
