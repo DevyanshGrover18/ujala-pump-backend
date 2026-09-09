@@ -56,150 +56,12 @@ export const updateThresholds = async (req, res) => {
   }
 };
 
-// POST /api/payouts/request - Seller / Plumber: Request a payout
+// POST /api/payouts/request - Seller / Plumber: Request a payout (Disabled: auto-created on incentive approval)
 export const requestPayout = async (req, res) => {
-  try {
-    let sellerType, sellerId;
-    if (req.user.distributor) {
-      sellerType = 'Distributor';
-      sellerId = req.user.distributor;
-    } else if (req.user.dealer) {
-      sellerType = 'Dealer';
-      sellerId = req.user.dealer;
-    } else if (req.user.subDealer) {
-      sellerType = 'SubDealer';
-      sellerId = req.user.subDealer;
-    } else if (req.user.plumber) {
-      sellerType = 'Plumber';
-      sellerId = req.user.plumber;
-    } else {
-      return res.status(403).json({ message: 'Unauthorized role for payout requests' });
-    }
-
-    const { amount, payoutMethod, bankDetails, upiId, notes, saveDetails } = req.body;
-
-    const numAmount = Number(amount);
-    if (!numAmount || numAmount <= 0) {
-      return res.status(400).json({ message: 'Please enter a valid payout amount' });
-    }
-
-    if (!payoutMethod || (payoutMethod !== 'Bank' && payoutMethod !== 'UPI')) {
-      return res.status(400).json({ message: 'Please select a payout method (Bank or UPI)' });
-    }
-
-    if (payoutMethod === 'UPI' && (!upiId || !upiId.trim())) {
-      return res.status(400).json({ message: 'UPI ID is required' });
-    }
-
-    if (payoutMethod === 'Bank') {
-      if (!bankDetails?.accountNumber || !bankDetails?.ifscCode || !bankDetails?.accountHolderName) {
-        return res.status(400).json({
-          message: 'Account number, IFSC code, and account holder name are required for bank transfer',
-        });
-      }
-    }
-
-    const Model = getSellerModel(sellerType);
-    let seller = await Model.findById(sellerId);
-    if (!seller && req.user.id) {
-      seller =
-        (await Model.findOne({ user: req.user.id })) ||
-        (await Model.findOne({ username: req.user.username }));
-    }
-    if (!seller) {
-      return res.status(404).json({ message: `${sellerType} account not found` });
-    }
-    sellerId = seller._id;
-
-    if (seller.eligibleForIncentive === false) {
-      return res.status(403).json({ message: 'Your account is not eligible for cash incentive payouts' });
-    }
-
-    // Check minimum threshold
-    const settings = await PayoutSetting.getSettings();
-    let minThreshold = 0;
-    if (sellerType === 'Distributor') minThreshold = settings.distributorMinPayout;
-    else if (sellerType === 'Dealer') minThreshold = settings.dealerMinPayout;
-    else if (sellerType === 'SubDealer') minThreshold = settings.subDealerMinPayout;
-    else if (sellerType === 'Plumber') minThreshold = settings.plumberMinPayout;
-
-    if (numAmount < minThreshold) {
-      return res.status(400).json({
-        message: `Minimum payout threshold for ${sellerType} is ₹${minThreshold.toLocaleString('en-IN')}`,
-      });
-    }
-
-    // Check balance
-    const currentBalance = Number(seller.walletIncentive || 0);
-    if (numAmount > currentBalance) {
-      return res.status(400).json({
-        message: `Insufficient wallet balance. You have ₹${currentBalance.toLocaleString('en-IN')} available`,
-      });
-    }
-
-    // Atomically deduct the requested amount to hold it
-    const updatedSeller = await Model.findOneAndUpdate(
-      { _id: sellerId, walletIncentive: { $gte: numAmount } },
-      { $inc: { walletIncentive: -numAmount } },
-      { new: true }
-    );
-
-    if (!updatedSeller) {
-      return res.status(400).json({
-        message: 'Could not hold balance. Please check your wallet balance and try again.',
-      });
-    }
-
-    // Save details if requested (non-critical, don't let failure abort payout)
-    if (saveDetails) {
-      try {
-        const savedData = {
-          payoutMethod,
-          bankDetails: payoutMethod === 'Bank' ? bankDetails : undefined,
-          upiId: payoutMethod === 'UPI' ? upiId.trim() : undefined,
-        };
-        await Model.findByIdAndUpdate(sellerId, {
-          $set: { savedPayoutDetails: savedData },
-        });
-      } catch (saveErr) {
-        console.warn('requestPayout: Could not save payout details (non-critical):', saveErr.message);
-      }
-    }
-
-    // Create payout request — if this fails, REFUND the deducted amount
-    let savedRequest;
-    try {
-      const payoutReq = new PayoutRequest({
-        requesterType: sellerType,
-        requesterId: sellerId,
-        requesterName: seller.name || req.user.username || sellerType,
-        requesterPhone: seller.phone || seller.contactPhone || '',
-        amount: numAmount,
-        status: 'Pending',
-        payoutMethod,
-        bankDetails: payoutMethod === 'Bank' ? bankDetails : undefined,
-        upiId: payoutMethod === 'UPI' ? upiId.trim() : '',
-        notes: notes?.trim() || '',
-      });
-      savedRequest = await payoutReq.save();
-    } catch (saveErr) {
-      // Refund the deducted amount back to the seller
-      console.error('requestPayout: Failed to save PayoutRequest, refunding amount:', saveErr.message);
-      await Model.findByIdAndUpdate(sellerId, { $inc: { walletIncentive: numAmount } });
-      return res.status(500).json({
-        message: 'Failed to submit payout request. Your balance has been restored.',
-      });
-    }
-
-    res.status(201).json({
-      message: 'Payout request submitted successfully',
-      payout: savedRequest,
-      remainingWalletBalance: updatedSeller.walletIncentive,
-    });
-  } catch (err) {
-    console.error('requestPayout error:', err);
-    res.status(500).json({ message: err.message });
-  }
+  return res.status(403).json({
+    message:
+      'Manual payout requests are disabled. Payouts are automatically created once incentives are approved.',
+  });
 };
 
 // GET /api/payouts/my - Seller / Plumber: View their payout history
@@ -342,7 +204,7 @@ export const getPendingPayoutsCount = async (req, res) => {
   }
 };
 
-// DELETE /api/payouts - Admin: Delete multiple payout requests (refunds pending ones)
+// DELETE /api/payouts - Admin: Delete multiple payout requests
 export const deleteMultiplePayouts = async (req, res) => {
   try {
     const { ids } = req.body;
@@ -350,28 +212,11 @@ export const deleteMultiplePayouts = async (req, res) => {
       return res.status(400).json({ message: 'No payout request IDs provided' });
     }
 
-    const payouts = await PayoutRequest.find({ _id: { $in: ids } });
-    let refundedCount = 0;
-
-    // Refund held balance for pending requests before deletion
-    for (const payout of payouts) {
-      if (payout.status === 'Pending') {
-        const Model = getSellerModel(payout.requesterType);
-        if (Model) {
-          await Model.findByIdAndUpdate(payout.requesterId, {
-            $inc: { walletIncentive: payout.amount },
-          });
-          refundedCount += 1;
-        }
-      }
-    }
-
     const result = await PayoutRequest.deleteMany({ _id: { $in: ids } });
 
     res.json({
       message: `${result.deletedCount} payout request(s) deleted successfully`,
       deletedCount: result.deletedCount,
-      refundedCount,
     });
   } catch (err) {
     console.error('deleteMultiplePayouts error:', err);
@@ -399,18 +244,9 @@ export const processPayout = async (req, res) => {
       return res.status(400).json({ message: 'Invalid action. Must be approve or reject' });
     }
 
-    const Model = getSellerModel(payout.requesterType);
-
     if (action === 'reject') {
       if (!rejectionReason || !rejectionReason.trim()) {
         return res.status(400).json({ message: 'Rejection reason is required' });
-      }
-
-      // Refund the held amount back to user's wallet
-      if (Model) {
-        await Model.findByIdAndUpdate(payout.requesterId, {
-          $inc: { walletIncentive: payout.amount },
-        });
       }
 
       payout.status = 'Rejected';
@@ -420,7 +256,7 @@ export const processPayout = async (req, res) => {
       await payout.save();
 
       return res.json({
-        message: 'Payout request rejected and balance refunded to user wallet',
+        message: 'Payout request rejected',
         payout,
       });
     }

@@ -6,6 +6,7 @@ import SubDealer from '../models/SubDealer.js';
 import Plumber from '../models/Plumber.js';
 import Sale from '../models/Sale.js';
 import UserRole from '../models/UserRole.js';
+import PayoutRequest from '../models/PayoutRequest.js';
 
 const getSellerInfo = async (sellerType, sellerId, userId, username) => {
   let model;
@@ -231,6 +232,9 @@ export const verifyClaim = async (req, res) => {
       ? await IncentiveClaim.find({ saleGroupId: claim.saleGroupId })
       : [claim];
 
+    // Group approved claims by seller to create a single payout per seller in this batch
+    const approvedSellers = new Map();
+
     for (const c of allClaims) {
       if (c.status === 'Approved') continue; // skip already approved
 
@@ -249,6 +253,24 @@ export const verifyClaim = async (req, res) => {
           await SubDealer.findByIdAndUpdate(c.sellerId, incUpdate);
         else if (c.sellerType === 'Plumber')
           await Plumber.findByIdAndUpdate(c.sellerId, incUpdate);
+
+        if (c.incentiveAmount > 0) {
+          const sKey = `${c.sellerType}_${c.sellerId}`;
+          if (!approvedSellers.has(sKey)) {
+            approvedSellers.set(sKey, {
+              sellerType: c.sellerType,
+              sellerId: c.sellerId,
+              sellerName: c.sellerName,
+              amount: 0,
+              serials: [],
+            });
+          }
+          const sEntry = approvedSellers.get(sKey);
+          sEntry.amount += Number(c.incentiveAmount) || 0;
+          if (c.serialNumber && !sEntry.serials.includes(c.serialNumber)) {
+            sEntry.serials.push(c.serialNumber);
+          }
+        }
       } else if (action === 'reject') {
         c.status = 'Rejected';
         c.rejectionReason = rejectionReason.trim();
@@ -260,6 +282,56 @@ export const verifyClaim = async (req, res) => {
         c.processedAt = new Date();
       }
       await c.save();
+    }
+
+    // Auto-create payout request records for approved incentives
+    if (action === 'approve' && approvedSellers.size > 0) {
+      for (const [, sEntry] of approvedSellers) {
+        if (sEntry.amount <= 0) continue;
+
+        let Model;
+        if (sEntry.sellerType === 'Distributor') Model = Distributor;
+        else if (sEntry.sellerType === 'Dealer') Model = Dealer;
+        else if (sEntry.sellerType === 'SubDealer') Model = SubDealer;
+        else if (sEntry.sellerType === 'Plumber') Model = Plumber;
+
+        let sellerDoc = null;
+        if (Model) {
+          sellerDoc = await Model.findById(sEntry.sellerId).lean();
+        }
+
+        const savedDetails = sellerDoc?.savedPayoutDetails || {};
+        const payoutMethod = savedDetails.payoutMethod || 'Bank';
+        const bankDetails = savedDetails.bankDetails || {
+          accountNumber: '',
+          ifscCode: '',
+          bankName: '',
+          accountHolderName: sellerDoc?.name || sEntry.sellerName || '',
+        };
+        const upiId = savedDetails.upiId || '';
+
+        const serialsText =
+          sEntry.serials.length > 0
+            ? ` (${sEntry.serials.slice(0, 5).join(', ')})`
+            : '';
+        const notes = `Approved Incentive${serialsText}`;
+
+        await PayoutRequest.create({
+          requesterType: sEntry.sellerType,
+          requesterId: sEntry.sellerId,
+          requesterName:
+            sellerDoc?.name || sEntry.sellerName || sEntry.sellerType,
+          requesterPhone:
+            sellerDoc?.phone || sellerDoc?.contactPhone || '',
+          amount: sEntry.amount,
+          status: 'Pending',
+          payoutMethod,
+          bankDetails: payoutMethod === 'Bank' ? bankDetails : undefined,
+          upiId: payoutMethod === 'UPI' ? upiId : '',
+          notes,
+          requestedAt: new Date(),
+        });
+      }
     }
 
     res.json({ message: `Claim ${action}d successfully` });

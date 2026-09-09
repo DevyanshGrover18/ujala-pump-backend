@@ -76,6 +76,7 @@ export const createPlumber = async (req, res) => {
       username: username.toLowerCase(),
       password,
       plumberId: newPlumberId,
+      savedPayoutDetails: req.body.savedPayoutDetails || undefined,
     });
 
     const createdPlumber = await plumber.save();

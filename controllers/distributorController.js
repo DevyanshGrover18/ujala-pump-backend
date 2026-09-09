@@ -205,6 +205,7 @@ export const createDistributor = async (req, res) => {
         eligibleForIncentive !== undefined ? eligibleForIncentive : true,
       eligibleForPoints:
         eligibleForPoints !== undefined ? eligibleForPoints : true,
+      savedPayoutDetails: req.body.savedPayoutDetails || undefined,
     });
 
     const createdDistributor = await distributor.save();

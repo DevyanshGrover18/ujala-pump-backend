@@ -34,7 +34,7 @@ const payoutRequestSchema = new mongoose.Schema(
     payoutMethod: {
       type: String,
       enum: ['Bank', 'UPI'],
-      required: true,
+      default: 'Bank',
     },
     bankDetails: {
       accountNumber: { type: String, default: '' },
