@@ -349,6 +349,14 @@ export const processPayout = async (req, res) => {
       payout.processedBy = req.user.id;
       await payout.save();
 
+      // Deduct payout amount from the role's wallet
+      const Model = getSellerModel(payout.requesterType);
+      if (Model && payout.requesterId) {
+        await Model.findByIdAndUpdate(payout.requesterId, {
+          $inc: { walletIncentive: -payout.amount },
+        });
+      }
+
       return res.json({
         message: 'Payout request approved and marked as paid',
         payout,
