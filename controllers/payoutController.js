@@ -5,6 +5,7 @@ import Distributor from '../models/Distributor.js';
 import Dealer from '../models/Dealer.js';
 import SubDealer from '../models/SubDealer.js';
 import Plumber from '../models/Plumber.js';
+import User from '../models/User.js';
 import UserRole from '../models/UserRole.js';
 
 // Helper to fetch seller/plumber document
@@ -67,27 +68,97 @@ export const requestPayout = async (req, res) => {
 // GET /api/payouts/my - Seller / Plumber: View their payout history
 export const getMyPayouts = async (req, res) => {
   try {
-    let sellerType, sellerId;
+    let sellerType, rawSellerId;
     if (req.user.distributor) {
       sellerType = 'Distributor';
-      sellerId = req.user.distributor;
+      rawSellerId = req.user.distributor;
     } else if (req.user.dealer) {
       sellerType = 'Dealer';
-      sellerId = req.user.dealer;
+      rawSellerId = req.user.dealer;
     } else if (req.user.subDealer) {
       sellerType = 'SubDealer';
-      sellerId = req.user.subDealer;
+      rawSellerId = req.user.subDealer;
     } else if (req.user.plumber) {
       sellerType = 'Plumber';
-      sellerId = req.user.plumber;
+      rawSellerId = req.user.plumber;
     } else return res.status(403).json({ message: 'Unauthorized' });
 
     const Model = getSellerModel(sellerType);
-    let seller = await Model.findById(sellerId);
-    if (!seller && req.user.id) {
-      seller =
-        (await Model.findOne({ user: req.user.id })) ||
-        (await Model.findOne({ username: req.user.username }));
+    const sellerId = rawSellerId?._id || rawSellerId;
+    let seller = null;
+    if (sellerId && mongoose.Types.ObjectId.isValid(sellerId)) {
+      seller = await Model.findById(sellerId);
+    }
+    if (!seller && rawSellerId) {
+      const rawStr = String(rawSellerId?.plumberId || rawSellerId?.distributorId || rawSellerId?.dealerId || rawSellerId?.subDealerId || (typeof rawSellerId === 'string' ? rawSellerId : '')).trim();
+      if (rawStr) {
+        seller = await Model.findOne({
+          $or: [
+            { plumberId: rawStr },
+            { distributorId: rawStr },
+            { dealerId: rawStr },
+            { subDealerId: rawStr },
+            { phone: rawStr },
+            { username: { $regex: new RegExp(`^${rawStr}$`, 'i') } },
+          ],
+        });
+      }
+    }
+    if (!seller && req.user.id && mongoose.Types.ObjectId.isValid(req.user.id)) {
+      const userDoc = await User.findById(req.user.id);
+      if (userDoc) {
+        const fieldKey =
+          sellerType === 'Distributor'
+            ? 'distributor'
+            : sellerType === 'Dealer'
+            ? 'dealer'
+            : sellerType === 'SubDealer'
+            ? 'subDealer'
+            : sellerType === 'Plumber'
+            ? 'plumber'
+            : null;
+        if (fieldKey && userDoc[fieldKey] && mongoose.Types.ObjectId.isValid(userDoc[fieldKey])) {
+          seller = await Model.findById(userDoc[fieldKey]);
+        }
+        if (!seller && userDoc[fieldKey] && typeof userDoc[fieldKey] === 'string') {
+          const rawF = userDoc[fieldKey].trim();
+          seller = await Model.findOne({
+            $or: [
+              { plumberId: rawF },
+              { distributorId: rawF },
+              { dealerId: rawF },
+              { subDealerId: rawF },
+              { phone: rawF },
+            ],
+          });
+        }
+        if (!seller && userDoc.username) {
+          const rawU = String(userDoc.username).trim();
+          seller = await Model.findOne({
+            $or: [
+              { username: { $regex: new RegExp(`^${rawU}$`, 'i') } },
+              { plumberId: rawU },
+              { distributorId: rawU },
+              { dealerId: rawU },
+              { subDealerId: rawU },
+              { phone: rawU },
+            ],
+          });
+        }
+      }
+    }
+    if (!seller && req.user.username) {
+      const rawU = String(req.user.username).trim();
+      seller = await Model.findOne({
+        $or: [
+          { username: { $regex: new RegExp(`^${rawU}$`, 'i') } },
+          { plumberId: rawU },
+          { distributorId: rawU },
+          { dealerId: rawU },
+          { subDealerId: rawU },
+          { phone: rawU },
+        ],
+      });
     }
     const finalSellerId = seller ? seller._id : sellerId;
 

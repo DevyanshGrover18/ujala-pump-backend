@@ -1,8 +1,127 @@
+import mongoose from 'mongoose';
 import Installation from '../models/Installation.js';
 import Product from '../models/Product.js';
 import Model from '../models/Model.js';
 import Plumber from '../models/Plumber.js';
+import User from '../models/User.js';
 import IncentiveClaim from '../models/IncentiveClaim.js';
+
+export const getPlumberFromReq = async (req) => {
+  if (!req?.user) return null;
+
+  // 1. Try req.user.plumber
+  if (req.user.plumber) {
+    // 1a. If object with _id
+    if (req.user.plumber._id && mongoose.Types.ObjectId.isValid(req.user.plumber._id)) {
+      const plumber = await Plumber.findById(req.user.plumber._id);
+      if (plumber) return plumber;
+    }
+    // 1b. If object with plumberId / phone / username
+    if (req.user.plumber.plumberId) {
+      const plumber = await Plumber.findOne({ plumberId: String(req.user.plumber.plumberId).trim() });
+      if (plumber) return plumber;
+    }
+    if (req.user.plumber.phone) {
+      const plumber = await Plumber.findOne({ phone: String(req.user.plumber.phone).trim() });
+      if (plumber) return plumber;
+    }
+    if (req.user.plumber.username) {
+      const rawU = String(req.user.plumber.username).trim();
+      const plumber = await Plumber.findOne({
+        username: { $regex: new RegExp(`^${rawU}$`, 'i') },
+      });
+      if (plumber) return plumber;
+    }
+    // 1c. If string (could be ObjectId, plumberId, phone, or username)
+    if (typeof req.user.plumber === 'string') {
+      const rawStr = req.user.plumber.trim();
+      if (mongoose.Types.ObjectId.isValid(rawStr)) {
+        const plumber = await Plumber.findById(rawStr);
+        if (plumber) return plumber;
+      }
+      const plumber = await Plumber.findOne({
+        $or: [
+          { plumberId: rawStr },
+          { phone: rawStr },
+          { username: { $regex: new RegExp(`^${rawStr}$`, 'i') } },
+        ],
+      });
+      if (plumber) return plumber;
+    }
+  }
+
+  // 2. Try User document lookup by req.user.id
+  if (req.user.id && mongoose.Types.ObjectId.isValid(req.user.id)) {
+    const userDoc = await User.findById(req.user.id);
+    if (userDoc) {
+      if (userDoc.plumber && mongoose.Types.ObjectId.isValid(userDoc.plumber)) {
+        const plumber = await Plumber.findById(userDoc.plumber);
+        if (plumber) return plumber;
+      }
+      if (userDoc.plumber && typeof userDoc.plumber === 'string') {
+        const plumber = await Plumber.findOne({
+          $or: [
+            { plumberId: userDoc.plumber.trim() },
+            { phone: userDoc.plumber.trim() },
+          ],
+        });
+        if (plumber) {
+          await User.findByIdAndUpdate(userDoc._id, { plumber: plumber._id });
+          return plumber;
+        }
+      }
+      if (userDoc.username) {
+        const rawU = String(userDoc.username).trim();
+        const plumber = await Plumber.findOne({
+          $or: [
+            { username: { $regex: new RegExp(`^${rawU}$`, 'i') } },
+            { plumberId: rawU },
+            { phone: rawU },
+          ],
+        });
+        if (plumber) {
+          if (!userDoc.plumber || String(userDoc.plumber) !== String(plumber._id)) {
+            await User.findByIdAndUpdate(userDoc._id, { plumber: plumber._id });
+          }
+          return plumber;
+        }
+      }
+    }
+  }
+
+  // 3. Try req.user.username directly
+  if (req.user.username) {
+    const rawU = String(req.user.username).trim();
+    const plumber = await Plumber.findOne({
+      $or: [
+        { username: { $regex: new RegExp(`^${rawU}$`, 'i') } },
+        { plumberId: rawU },
+        { phone: rawU },
+      ],
+    });
+    if (plumber) return plumber;
+  }
+
+  // 4. Try req.user.id directly as Plumber._id
+  if (req.user.id && mongoose.Types.ObjectId.isValid(req.user.id)) {
+    const plumber = await Plumber.findById(req.user.id);
+    if (plumber) return plumber;
+  }
+
+  // 5. Check request body if plumberId was provided
+  if (req.body?.plumberId) {
+    const rawId = String(req.body.plumberId).trim();
+    const plumber = await Plumber.findOne({
+      $or: [
+        { plumberId: rawId },
+        { phone: rawId },
+      ],
+    });
+    if (plumber) return plumber;
+  }
+
+  return null;
+};
 
 export const checkSerialNumber = async (req, res) => {
   try {
@@ -77,11 +196,7 @@ export const installMotor = async (req, res) => {
     }
 
     // Find logged-in plumber
-    const plumberId = req.user.plumber || req.user.id;
-    let plumber = await Plumber.findById(plumberId);
-    if (!plumber && req.user.id) {
-      plumber = (await Plumber.findOne({ user: req.user.id })) || (await Plumber.findOne({ username: req.user.username }));
-    }
+    const plumber = await getPlumberFromReq(req);
     if (!plumber) {
       return res.status(404).json({ message: 'Plumber profile not found' });
     }
@@ -169,8 +284,12 @@ export const installMotor = async (req, res) => {
 
 export const getPlumberInstallations = async (req, res) => {
   try {
-    const plumberId = req.user.plumber;
-    const installations = await Installation.find({ plumber: plumberId })
+    const plumber = await getPlumberFromReq(req);
+    if (!plumber) {
+      return res.json([]);
+    }
+
+    const installations = await Installation.find({ plumber: plumber._id })
       .populate('model', 'name code specifications')
       .populate('product', 'productName')
       .sort({ createdAt: -1 });

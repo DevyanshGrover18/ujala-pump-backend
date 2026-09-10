@@ -4,11 +4,12 @@ import Distributor from '../models/Distributor.js';
 import Dealer from '../models/Dealer.js';
 import SubDealer from '../models/SubDealer.js';
 import Plumber from '../models/Plumber.js';
+import User from '../models/User.js';
 import Sale from '../models/Sale.js';
 import UserRole from '../models/UserRole.js';
 import PayoutRequest from '../models/PayoutRequest.js';
 
-const getSellerInfo = async (sellerType, sellerId, userId, username) => {
+const getSellerInfo = async (sellerType, rawSellerId, userId, username) => {
   let model;
   let fields =
     'name contactPerson contactPhone email walletIncentive walletPoints eligibleForIncentive eligibleForPoints savedPayoutDetails';
@@ -28,11 +29,92 @@ const getSellerInfo = async (sellerType, sellerId, userId, username) => {
     return null;
   }
 
-  let seller = sellerId ? await model.findById(sellerId).select(fields).lean() : null;
-  if (!seller && userId) {
-    seller = (await model.findOne({ user: userId }).select(fields).lean()) ||
-      (username ? await model.findOne({ username }).select(fields).lean() : null);
+  const sellerId = rawSellerId?._id || rawSellerId;
+  let seller = null;
+  if (sellerId && mongoose.Types.ObjectId.isValid(sellerId)) {
+    seller = await model.findById(sellerId).select(fields).lean();
   }
+
+  // Check custom ID from sellerId if string or object
+  if (!seller && rawSellerId) {
+    const rawStr = String(rawSellerId?.plumberId || rawSellerId?.distributorId || rawSellerId?.dealerId || rawSellerId?.subDealerId || (typeof rawSellerId === 'string' ? rawSellerId : '')).trim();
+    if (rawStr) {
+      seller = await model.findOne({
+        $or: [
+          { plumberId: rawStr },
+          { distributorId: rawStr },
+          { dealerId: rawStr },
+          { subDealerId: rawStr },
+          { phone: rawStr },
+          { username: { $regex: new RegExp(`^${rawStr}$`, 'i') } },
+        ],
+      }).select(fields).lean();
+    }
+  }
+
+  if (!seller && userId && mongoose.Types.ObjectId.isValid(userId)) {
+    const userDoc = await User.findById(userId).lean();
+    if (userDoc) {
+      const fieldKey =
+        sellerType === 'Distributor'
+          ? 'distributor'
+          : sellerType === 'Dealer'
+          ? 'dealer'
+          : sellerType === 'SubDealer'
+          ? 'subDealer'
+          : sellerType === 'Plumber'
+          ? 'plumber'
+          : null;
+      if (fieldKey && userDoc[fieldKey] && mongoose.Types.ObjectId.isValid(userDoc[fieldKey])) {
+        seller = await model.findById(userDoc[fieldKey]).select(fields).lean();
+      }
+      if (!seller && userDoc[fieldKey] && typeof userDoc[fieldKey] === 'string') {
+        const rawF = userDoc[fieldKey].trim();
+        seller = await model.findOne({
+          $or: [
+            { plumberId: rawF },
+            { distributorId: rawF },
+            { dealerId: rawF },
+            { subDealerId: rawF },
+            { phone: rawF },
+          ],
+        }).select(fields).lean();
+      }
+      if (!seller && userDoc.username) {
+        const rawU = String(userDoc.username).trim();
+        seller = await model.findOne({
+          $or: [
+            { username: { $regex: new RegExp(`^${rawU}$`, 'i') } },
+            { plumberId: rawU },
+            { distributorId: rawU },
+            { dealerId: rawU },
+            { subDealerId: rawU },
+            { phone: rawU },
+          ],
+        }).select(fields).lean();
+      }
+    }
+  }
+
+  if (!seller && username) {
+    const rawU = String(username).trim();
+    seller = await model.findOne({
+      $or: [
+        { username: { $regex: new RegExp(`^${rawU}$`, 'i') } },
+        { plumberId: rawU },
+        { distributorId: rawU },
+        { dealerId: rawU },
+        { subDealerId: rawU },
+        { phone: rawU },
+      ],
+    }).select(fields).lean();
+  }
+
+  if (!seller && userId && mongoose.Types.ObjectId.isValid(userId)) {
+    seller = (await model.findOne({ user: userId }).select(fields).lean()) ||
+      (await model.findById(userId).select(fields).lean());
+  }
+
   return seller;
 };
 

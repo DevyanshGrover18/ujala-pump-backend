@@ -128,11 +128,11 @@ const verifyToken = async (req, res, next) => {
     let dbUser;
     if (sanitizedRole === 'member') {
       dbUser = await UserRole.findById(decoded.id).select(
-        'sessionVersion isActive'
+        'username sessionVersion isActive'
       );
     } else {
       dbUser = await User.findById(decoded.id).select(
-        'sessionVersion isActive distributor factory dealer subDealer executive plumber accountsMember'
+        'username sessionVersion isActive distributor factory dealer subDealer executive plumber accountsMember'
       );
     }
 
@@ -161,6 +161,7 @@ const verifyToken = async (req, res, next) => {
 
     req.user = {
       ...decoded,
+      username: decoded.username || dbUser.username,
       distributor: decoded.distributor || dbUser.distributor,
       factory: decoded.factory || dbUser.factory,
       dealer: decoded.dealer || dbUser.dealer,

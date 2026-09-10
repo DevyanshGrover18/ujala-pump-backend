@@ -20,7 +20,8 @@ const generateToken = (
   subDealer,
   plumber,
   executive,
-  sessionVersion
+  sessionVersion,
+  username
 ) => {
   const jwtSecret = validateJWTSecret();
   const expiresIn = process.env.JWT_EXPIRES_IN || '6h';
@@ -28,6 +29,7 @@ const generateToken = (
   return jwt.sign(
     {
       id,
+      username,
       role,
       distributor,
       factory,
@@ -164,7 +166,8 @@ export const login = async (req, res) => {
           null,
           null,
           null,
-          sessionVersion
+          sessionVersion,
+          user.username
         ),
       };
       return res.json({ user: userData });
@@ -191,7 +194,8 @@ export const login = async (req, res) => {
         user.subDealer?._id || user.subDealer,
         user.plumber?._id || user.plumber,
         user.executive?._id || user.executive,
-        sessionVersion
+        sessionVersion,
+        user.username
       ),
     };
 
